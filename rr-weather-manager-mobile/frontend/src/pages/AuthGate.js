@@ -66,8 +66,8 @@ export default function AuthGate({ onSignedIn }) {
               <Cloud strokeWidth={1.5} className="w-6 h-6 text-accent" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-tight" data-testid="auth-app-title">Root Record</h1>
-              <p className="text-xs text-accent/70 uppercase tracking-[.2em] font-mono">Weather Manager</p>
+              <h1 className="text-xl font-semibold tracking-tight" data-testid="auth-app-title">Weather Manager</h1>
+              <p className="text-xs text-accent/70 uppercase tracking-[.2em] font-mono">Forecasts &amp; alerts</p>
             </div>
           </div>
 

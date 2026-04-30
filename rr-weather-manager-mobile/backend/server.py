@@ -55,7 +55,7 @@ weather_data_col = db["weather_data"]
 WEATHER_DATA_TTL_SEC = int(os.environ.get("WEATHER_DATA_TTL_SEC", os.environ.get("WEATHER_CACHE_TTL_SEC", "600")))
 
 # --------------------------------------------------------------------------- app
-app = FastAPI(title="Root Record Weather Manager API", version="1.0.0")
+app = FastAPI(title="Root Record Weather Manager API", version="1.0.8")
 api = APIRouter(prefix="/api")
 
 app.add_middleware(
@@ -66,7 +66,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-USER_AGENT = "RootRecordWeatherManagerMobile/1.0 (contact: root@rootrecord.info)"
+USER_AGENT = "RootRecordWeatherManagerMobile/1.0.8 (contact: root@rootrecord.info)"
 
 
 # ============================================================================
@@ -196,7 +196,7 @@ def haversine_miles(a_lat: float, a_lon: float, b_lat: float, b_lon: float) -> f
 # ============================================================================
 @api.get("/")
 async def root():
-    return {"name": "Root Record Weather Manager API", "version": "1.0.0"}
+    return {"name": "Root Record Weather Manager API", "version": "1.0.8"}
 
 
 @api.get("/health")

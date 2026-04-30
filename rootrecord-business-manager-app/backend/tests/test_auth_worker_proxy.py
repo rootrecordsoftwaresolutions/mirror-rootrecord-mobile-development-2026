@@ -9,7 +9,11 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://15689350-c999-4107-934a-1701fd2675bc.preview.emergentagent.com").rstrip("/")
+BASE_URL = (
+    os.environ.get("BUSINESS_MANAGER_API_URL", "").strip()
+    or os.environ.get("REACT_APP_BACKEND_URL", "").strip()
+    or "http://127.0.0.1:8000"
+).rstrip("/")
 API = f"{BASE_URL}/api"
 
 RUN_ID = f"{int(time.time())}-{uuid.uuid4().hex[:6]}"

@@ -1,8 +1,50 @@
 import axios from "axios";
 
-const API_BASE = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// Same primary Worker as Weather Manager — /api/* (auth, earn, business data in D1 `bm_owned_row`).
+const DEFAULT_BACKEND = "https://api.rootrecord.info";
 
-export const api = axios.create({ baseURL: API_BASE });
+function normalizeBackendBase(raw) {
+  let base = String(raw ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (!base) return "";
+  if (base.toLowerCase().endsWith("/api")) {
+    base = base.slice(0, -4).replace(/\/+$/, "");
+  }
+  return base;
+}
+
+/** Hosts that only work with a dev machine / emulator — never use in a production bundle. */
+function isLocalDevBackend(base) {
+  if (!base) return false;
+  try {
+    const withProto = /^https?:\/\//i.test(base) ? base : `http://${base}`;
+    const { hostname } = new URL(withProto);
+    const h = hostname.toLowerCase();
+    if (h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "0.0.0.0") return true;
+    if (h === "10.0.2.2") return true; // Android emulator → host loopback
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const fromEnv = normalizeBackendBase(process.env.REACT_APP_BACKEND_URL);
+const useProdFallback =
+  process.env.NODE_ENV === "production" && fromEnv && isLocalDevBackend(fromEnv);
+const BACKEND = useProdFallback ? DEFAULT_BACKEND : fromEnv || DEFAULT_BACKEND;
+const API_BASE = `${BACKEND}/api`;
+
+/** Same earn / signup-bonus accounting as Weather; separate per-app daily caps. */
+export const RR_APP_ID = String(
+  process.env.REACT_APP_RR_APP_ID || "rootrecord_business_manager_android"
+);
+
+export function isBackendConfigured() {
+  return Boolean(BACKEND);
+}
+
+export const api = axios.create({ baseURL: API_BASE, timeout: 25000 });
 
 const TOKEN_KEY = "rrbm_token";
 const DEVICE_ID_KEY = "rrbm_device_id";
@@ -15,12 +57,10 @@ export function setToken(t) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
-/** Stable per-install identifier sent to the licence Worker (parity with desktop's
- *  loadOrCreateDeviceId in licenseService.js). Persisted in localStorage. */
+/** Stable per-install id sent as `device_id` on login/signup (Worker requires it). */
 export function getDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (id && id.length >= 8) return id;
-  // Prefer crypto.randomUUID where available; fall back to a v4-ish hex.
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     id = crypto.randomUUID();
   } else {
@@ -44,7 +84,7 @@ api.interceptors.response.use(
   (r) => r,
   (e) => {
     if (e?.response?.status === 401) {
-      // Soft kick — the AuthContext refresh will detect this and bounce to /auth.
+      /* AuthContext handles session */
     }
     return Promise.reject(e);
   }
@@ -52,8 +92,34 @@ api.interceptors.response.use(
 
 export function formatApiError(err) {
   const d = err?.response?.data?.detail;
-  if (!d) return err?.message || "Network error";
-  if (typeof d === "string") return d;
-  if (Array.isArray(d)) return d.map((x) => x?.msg || JSON.stringify(x)).join(" · ");
-  return String(d);
+  if (d !== undefined && d !== null && d !== "") {
+    if (typeof d === "string") return d;
+    if (Array.isArray(d)) return d.map((x) => x?.msg || JSON.stringify(x)).join(" · ");
+    return String(d);
+  }
+  const code = err?.code;
+  if (code === "ECONNABORTED") {
+    return "Request timed out. Check your connection and try again.";
+  }
+  const msg = String(err?.message || "");
+  if (code === "ERR_NETWORK" || msg.toLowerCase().includes("network error")) {
+    try {
+      const host = new URL(API_BASE).host;
+      return `Could not reach ${host}. Check Wi‑Fi or cellular data, or try again after disabling VPN. If this persists, reinstall from a build that uses the production API.`;
+    } catch {
+      return "Could not reach the server. Check your internet connection and try again.";
+    }
+  }
+  return msg || "Something went wrong.";
+}
+
+/** Beta / usage rewards — shared balance with Weather (`rr_earn_*` on Worker). */
+export function earnGetSummary() {
+  return api.get("/earn/summary", { params: { app_id: RR_APP_ID } });
+}
+export function earnHeartbeat(body) {
+  return api.post("/earn/heartbeat", body);
+}
+export function earnCheckin(body) {
+  return api.post("/earn/checkin", body ?? { app_id: RR_APP_ID });
 }

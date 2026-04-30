@@ -1,6 +1,6 @@
 {
   "appId": "com.rootrecord.weathermanager",
-  "appName": "Root Record Weather",
+  "appName": "Weather Manager",
   "webDir": "build",
   "server": {
     "androidScheme": "https"

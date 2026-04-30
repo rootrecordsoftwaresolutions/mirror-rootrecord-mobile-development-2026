@@ -41,8 +41,8 @@ export default function AuthScreen() {
         <div className="w-14 h-14 rounded-2xl bg-brand/15 border border-brand/30 flex items-center justify-center mb-3">
           <Sprout size={28} className="text-brand" />
         </div>
-        <h1 className="font-heading text-2xl font-bold text-ink-primary tracking-tight">RootRecord</h1>
-        <p className="text-xs text-ink-secondary mt-1">Business Manager</p>
+        <h1 className="font-heading text-2xl font-bold text-ink-primary tracking-tight">Business Manager</h1>
+        <p className="text-xs text-ink-secondary mt-1">Time, clients, and operations</p>
         <p className="text-xs text-ink-tertiary mt-3 text-center max-w-[300px]">
           Use the same email and password as your Windows installer. Your account, plan, and sync follow you across every device.
         </p>
@@ -132,7 +132,7 @@ export default function AuthScreen() {
       </button>
 
       <p className="text-xs text-ink-tertiary text-center mt-auto pt-6">
-        Powered by the RootRecord licence Worker — same account, same email/password, every device.
+        Same RootRecord sign-in and beta rewards as Weather — primary API at api.rootrecord.info.
       </p>
     </div>
   );

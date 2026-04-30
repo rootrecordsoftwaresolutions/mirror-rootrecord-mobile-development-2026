@@ -19,10 +19,18 @@ if (-not (Test-Path -LiteralPath $googleServicesPath)) {
 Push-Location $frontendRoot
 try {
   Write-Host "Step 1/3: Building web assets..." -ForegroundColor Yellow
-  npm run build
+  if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+    pnpm run build
+  } else {
+    npm run build
+  }
 
   Write-Host "Step 2/3: Syncing Capacitor Android project..." -ForegroundColor Yellow
-  npx cap sync android
+  if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+    pnpm exec cap sync android
+  } else {
+    npx cap sync android
+  }
 
   Write-Host "Step 3/3: Building signed release APK..." -ForegroundColor Yellow
   Push-Location $androidRoot

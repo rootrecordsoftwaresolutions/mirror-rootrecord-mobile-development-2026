@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { getToken, earnHeartbeat, RR_APP_ID } from "./lib/api";
 import BottomNav from "./components/ui/BottomNav";
 import AuthScreen from "./components/modules/AuthScreen";
 import Dashboard from "./components/modules/Dashboard";
@@ -12,6 +13,20 @@ import WorkLog from "./components/modules/WorkLog";
 import Reports from "./components/modules/Reports";
 import Stock from "./components/modules/Stock";
 import { AccountSettings, BusinessSettings, ProgramSettings, About, Feedback } from "./components/modules/Settings";
+
+/** Same earn heartbeat pattern as Weather Manager — shared `rr_earn_*` balance on primary Worker. */
+function EarnHeartbeat() {
+  const loc = useLocation();
+  useEffect(() => {
+    if (!getToken()) return undefined;
+    const page = loc.pathname || "/";
+    const tick = () => earnHeartbeat({ app_id: RR_APP_ID, page }).catch(() => {});
+    tick();
+    const id = setInterval(tick, 25_000);
+    return () => clearInterval(id);
+  }, [loc.pathname]);
+  return null;
+}
 
 function Gate({ children }) {
   const { user, guest } = useAuth();
@@ -54,6 +69,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <EarnHeartbeat />
         <div className="min-h-[100dvh]">
           <AppRoutes />
           <BottomNav />

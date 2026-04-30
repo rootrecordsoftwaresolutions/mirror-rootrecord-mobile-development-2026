@@ -3,8 +3,59 @@ import { api, getToken, setToken, getDeviceId } from "../lib/api";
 
 const AuthCtx = createContext(null);
 
+function isTransientNetworkError(e) {
+  return e?.code === "ERR_NETWORK" || String(e?.message || "").toLowerCase().includes("network error");
+}
+
+async function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function postWithRetry(url, body) {
+  try {
+    return await api.post(url, body);
+  } catch (e1) {
+    if (isTransientNetworkError(e1)) {
+      await sleep(650);
+      return await api.post(url, body);
+    }
+    throw e1;
+  }
+}
+
+function userFromAuthPayload(data, displayName) {
+  const email = String(data.email || "").trim();
+  const pro = Boolean(data.pro_unlocked || data.proUnlocked);
+  const life = Boolean(data.life_member || data.lifeMember);
+  const nm = (displayName && String(displayName).trim()) || email.split("@")[0] || "User";
+  return {
+    id: String(data.account_id || ""),
+    email,
+    name: nm,
+    plan: pro || life ? "pro" : "free",
+    role: "user",
+    created_at: new Date().toISOString(),
+    subscription_status: String(data.subscription_status || "none"),
+  };
+}
+
+function userFromMePayload(data) {
+  const email = String(data.email || "").trim();
+  const pro = Boolean(data.pro_unlocked);
+  const life = Boolean(data.life_member);
+  const raw = data.raw && typeof data.raw === "object" ? data.raw : {};
+  return {
+    id: String(data.account_id || raw.account_id || ""),
+    email,
+    name: email.split("@")[0] || "User",
+    plan: pro || life ? "pro" : "free",
+    role: "user",
+    created_at: String(raw.account_created_at || new Date().toISOString()),
+    subscription_status: String(data.subscription_status || raw.subscription_status || "none"),
+  };
+}
+
 export function AuthProvider({ children }) {
-  // user: undefined while loading, null when not authed, object when authed
   const [user, setUser] = useState(undefined);
   const [guest, setGuest] = useState(() => localStorage.getItem("rrbm_guest") === "1");
 
@@ -15,8 +66,8 @@ export function AuthProvider({ children }) {
       return;
     }
     try {
-      const { data } = await api.get("/auth/me");
-      setUser(data);
+      const { data } = await api.post("/auth/me");
+      setUser(userFromMePayload(data));
     } catch {
       setToken("");
       setUser(null);
@@ -32,25 +83,35 @@ export function AuthProvider({ children }) {
   }, [guest, refresh]);
 
   const login = useCallback(async (email, password) => {
-    const { data } = await api.post("/auth/login", {
-      email, password, device_id: getDeviceId(),
+    const { data } = await postWithRetry("/auth/login", {
+      email,
+      password,
+      device_id: getDeviceId(),
     });
-    setToken(data.access_token);
+    const tok = data.access_token || data.token;
+    if (!tok) throw new Error("No session token returned.");
+    setToken(tok);
     localStorage.removeItem("rrbm_guest");
     setGuest(false);
-    setUser(data.user);
-    return data.user;
+    const u = userFromAuthPayload(data);
+    setUser(u);
+    return u;
   }, []);
 
   const register = useCallback(async (email, password, name) => {
-    const { data } = await api.post("/auth/register", {
-      email, password, name, device_id: getDeviceId(),
+    const { data } = await postWithRetry("/auth/signup", {
+      email,
+      password,
+      device_id: getDeviceId(),
     });
-    setToken(data.access_token);
+    const tok = data.access_token || data.token;
+    if (!tok) throw new Error("No session token returned.");
+    setToken(tok);
     localStorage.removeItem("rrbm_guest");
     setGuest(false);
-    setUser(data.user);
-    return data.user;
+    const u = userFromAuthPayload(data, name);
+    setUser(u);
+    return u;
   }, []);
 
   const logout = useCallback(async () => {
@@ -64,13 +125,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshEntitlement = useCallback(async () => {
-    try {
-      const { data } = await api.post("/auth/entitlement", { device_id: getDeviceId() });
-      setUser((u) => (u ? { ...u, plan: data.plan, subscription_status: data.subscription_status } : u));
-      return data;
-    } catch (e) {
-      throw e;
-    }
+    const { data } = await api.post("/auth/entitlement", { device_id: getDeviceId() });
+    setUser((prev) =>
+      prev ? { ...prev, plan: data.plan, subscription_status: data.subscription_status || prev.subscription_status } : prev
+    );
+    return data;
   }, []);
 
   const continueAsGuest = useCallback(() => {

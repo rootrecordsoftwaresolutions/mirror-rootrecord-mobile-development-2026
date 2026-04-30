@@ -65,7 +65,7 @@ export function AccountSettings() {
                   <LogOut size={16} /> Log out
                 </button>
                 <p className="text-[11px] text-ink-tertiary mt-3 text-center">
-                  Same email/password as the Windows desktop app · device-bound via licence Worker.
+                  Same RootRecord account as Weather and the website — sign-in and rewards run on api.rootrecord.info.
                 </p>
               </>
             ) : (

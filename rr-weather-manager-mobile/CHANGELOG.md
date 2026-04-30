@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.0.8] — 2026-04-29
+
+- **Release 8:** Android `versionCode` **8** and user-facing **1.0.8** (aligned numbering). Signed AAB/APK from workspace-aligned web assets and Capacitor Android.
+
 ## [1.0.2] — 2026-04-26
 
 - **Settings:** “Contact & support” section with website, contact form, Discord, and Telegram (opens in the system browser).

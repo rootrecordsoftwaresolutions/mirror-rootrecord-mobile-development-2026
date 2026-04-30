@@ -26,18 +26,35 @@ from pydantic import BaseModel, EmailStr, Field
 
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
-LICENSE_API_BASE_URL = os.environ.get("LICENSE_API_BASE_URL", "").rstrip("/")
-LOCAL_AUTH_FALLBACK = LICENSE_API_BASE_URL in ("", "local")
+# Licence Worker (same contract as Windows desktop licenseService.js). Override with ROOTRECORD_LICENSE_API or LICENSE_API_BASE_URL.
+_license_raw = (
+    os.environ.get("ROOTRECORD_LICENSE_API", "").strip()
+    or os.environ.get("LICENSE_API_BASE_URL", "").strip()
+    or "https://rootrecord-license.rootrecord.workers.dev"
+).rstrip("/")
+if _license_raw.lower() in ("", "local", "none"):
+    LICENSE_API_BASE_URL = ""
+else:
+    LICENSE_API_BASE_URL = _license_raw
+LOCAL_AUTH_FALLBACK = not bool(LICENSE_API_BASE_URL)
+
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+LICENSE_WORKER_UA = os.environ.get(
+    "LICENSE_WORKER_UA",
+    "RootRecordBusinessManagerMobile/0.2 (contact: root@rootrecord.info)",
+)
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
 app = FastAPI(title="RootRecord Business Manager — Mobile API", version="0.2.0")
 
+_cors_origins = [o.strip() for o in CORS_ORIGINS.split(",")] if CORS_ORIGINS != "*" else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=_cors_origins,
+    # Browsers disallow credentials with wildcard origins; mirror Weather when using explicit origins.
+    allow_credentials=CORS_ORIGINS != "*",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -62,9 +79,10 @@ def new_id() -> str:
 # ---------------------------------------------------------------------------
 # Licence Worker proxy (RootRecord licence service)
 # ---------------------------------------------------------------------------
-# Worker base: https://rootrecord-license.rootrecord.workers.dev
-# Endpoints used: /v1/auth/login, /v1/auth/signup, /v1/auth/logout, /v1/me, /v1/entitlement
-# Mirrors the desktop app's licenseService.js HTTP contract.
+# Default base: https://rootrecord-license.rootrecord.workers.dev (override with
+# ROOTRECORD_LICENSE_API or LICENSE_API_BASE_URL). Endpoints: /v1/auth/login,
+# /v1/auth/signup, /v1/auth/logout, /v1/me, /v1/entitlement — same contract as
+# the Windows desktop licenseService.js.
 
 async def _worker_post(path: str, body: dict, bearer: Optional[str] = None) -> tuple[int, dict]:
     if not LICENSE_API_BASE_URL:
@@ -73,6 +91,7 @@ async def _worker_post(path: str, body: dict, bearer: Optional[str] = None) -> t
     if bearer:
         headers["Authorization"] = f"Bearer {bearer}"
     url = f"{LICENSE_API_BASE_URL}{path}"
+    headers["User-Agent"] = LICENSE_WORKER_UA
     async with httpx.AsyncClient(timeout=httpx.Timeout(35.0)) as cx:
         try:
             r = await cx.post(url, json=body, headers=headers)
@@ -84,9 +103,10 @@ async def _worker_get(path: str, bearer: str) -> tuple[int, dict]:
     if not LICENSE_API_BASE_URL:
         raise HTTPException(status_code=503, detail="Online sign-in is not configured.")
     url = f"{LICENSE_API_BASE_URL}{path}"
+    get_headers = {"Authorization": f"Bearer {bearer}", "User-Agent": LICENSE_WORKER_UA}
     async with httpx.AsyncClient(timeout=httpx.Timeout(22.0)) as cx:
         try:
-            r = await cx.get(url, headers={"Authorization": f"Bearer {bearer}"})
+            r = await cx.get(url, headers=get_headers)
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"Licence service unreachable: {e}")
     return _normalize_worker_response(r)

@@ -1,0 +1,8 @@
+{
+  "short_name": "Business",
+  "name": "Business Manager",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0B1010",
+  "background_color": "#0B1010"
+}
