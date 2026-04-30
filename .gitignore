@@ -1,0 +1,49 @@
+# Workspace dependencies (pnpm)
+node_modules/
+.pnpm-debug.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+*.iml
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env and credentials (never commit real secrets)
+.env
+.env.*
+!.env.example
+credentials.env
+credentials.json
+*.pem
+*.key
+.credentials
+*adminsdk*.json
+*-service-account*.json
+
+# CRA / frontend build output
+**/build/
+**/dist/
+
+# Tool caches
+**/.cache/
+**/.eslintcache
+
+# Android (Capacitor / Gradle)
+**/android/.gradle/
+**/android/**/build/
+**/android/**/.cxx/
+**/android/local.properties
+**/android/captures/
+
+# Python (weather backend)
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Test / coverage
+coverage/

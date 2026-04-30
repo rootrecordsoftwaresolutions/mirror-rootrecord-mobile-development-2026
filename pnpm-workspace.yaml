@@ -1,0 +1,4 @@
+packages:
+  - "rr-weather-manager-mobile/frontend"
+  - "rootrecord-business-manager-app/frontend"
+  - "apps/*"
