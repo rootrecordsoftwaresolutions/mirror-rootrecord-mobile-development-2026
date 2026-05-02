@@ -18,9 +18,9 @@ android {
         applicationId "com.rootrecord.weathermanager"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Release 8 → versionCode 8; user-facing versionName 1.0.8 (aligned numbering).
-        versionCode 8
-        versionName "1.0.8"
+        // Release 14 → versionCode 14; user-facing versionName 1.0.14 (aligned numbering).
+        versionCode 14
+        versionName "1.0.14"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

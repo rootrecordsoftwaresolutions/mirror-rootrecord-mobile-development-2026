@@ -1,6 +1,7 @@
 import axios from "axios";
+import { attachAxiosNetworkResilience } from "./httpResilience";
 
-// Same primary Worker as Weather Manager — /api/* (auth, earn, business data in D1 `bm_owned_row`).
+// Same primary Worker as Weather Manager — shared /api/* (auth, earn, Business Manager records).
 const DEFAULT_BACKEND = "https://api.rootrecord.info";
 
 function normalizeBackendBase(raw) {
@@ -44,7 +45,8 @@ export function isBackendConfigured() {
   return Boolean(BACKEND);
 }
 
-export const api = axios.create({ baseURL: API_BASE, timeout: 25000 });
+export const api = axios.create({ baseURL: API_BASE, timeout: 30000 });
+attachAxiosNetworkResilience(api, { maxRetries: 3 });
 
 const TOKEN_KEY = "rrbm_token";
 const DEVICE_ID_KEY = "rrbm_device_id";
@@ -111,6 +113,16 @@ export function formatApiError(err) {
     }
   }
   return msg || "Something went wrong.";
+}
+
+/** Deletes every Business Manager record for the signed-in user on RootRecord (not Weather, not billing). */
+export function wipeBusinessCloudData() {
+  // Prefer DELETE on the business route tree (same auth as other BM calls). POST /auth/wipe-business-data
+  // remains for older deployments that only registered the auth-scoped path.
+  return api.delete("/account/business-data").catch((e) => {
+    if (e?.response?.status === 404) return api.post("/auth/wipe-business-data", {});
+    return Promise.reject(e);
+  });
 }
 
 /** Beta / usage rewards — shared balance with Weather (`rr_earn_*` on Worker). */

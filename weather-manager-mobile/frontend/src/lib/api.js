@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { attachAxiosNetworkResilience } from './httpResilience';
 
 // Default: custom domain for `rootrecord-primary` Worker (base URL only — no trailing slash, no /api; client adds /api).
 const DEFAULT_BACKEND = 'https://api.rootrecord.info';
@@ -15,8 +16,25 @@ function normalizeBackendBase(raw) {
   return base;
 }
 
+/** Hosts that only work with a dev machine / emulator — never use in a production bundle. */
+function isLocalDevBackend(base) {
+  if (!base) return false;
+  try {
+    const withProto = /^https?:\/\//i.test(base) ? base : `http://${base}`;
+    const { hostname } = new URL(withProto);
+    const h = hostname.toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0') return true;
+    if (h === '10.0.2.2') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const fromEnv = normalizeBackendBase(process.env.REACT_APP_BACKEND_URL);
-const BACKEND = fromEnv || DEFAULT_BACKEND;
+const useProdFallback =
+  process.env.NODE_ENV === 'production' && fromEnv && isLocalDevBackend(fromEnv);
+const BACKEND = useProdFallback ? DEFAULT_BACKEND : fromEnv || DEFAULT_BACKEND;
 const API = `${BACKEND}/api`;
 
 /** Ecosystem id for per-app earn/reward analytics (server + this build). */
@@ -24,6 +42,29 @@ export const RR_APP_ID = String(process.env.REACT_APP_RR_APP_ID || 'rootrecord_w
 
 export function isBackendConfigured() {
   return Boolean(BACKEND);
+}
+
+export function formatApiError(err) {
+  const d = err?.response?.data?.detail;
+  if (d !== undefined && d !== null && d !== '') {
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d)) return d.map((x) => x?.msg || JSON.stringify(x)).join(' · ');
+    return String(d);
+  }
+  const code = err?.code;
+  if (code === 'ECONNABORTED') {
+    return 'Request timed out. Check your connection and try again.';
+  }
+  const msg = String(err?.message || '');
+  if (code === 'ERR_NETWORK' || msg.toLowerCase().includes('network error')) {
+    try {
+      const host = new URL(API).host;
+      return `Could not reach ${host}. Check Wi‑Fi or cellular data, or try again after disabling VPN. If this persists, reinstall from a build that uses the production API.`;
+    } catch {
+      return 'Could not reach the server. Check your internet connection and try again.';
+    }
+  }
+  return msg || 'Something went wrong.';
 }
 
 const STORAGE_KEYS = {
@@ -55,7 +96,8 @@ function authHeaders() {
   return {};
 }
 
-const client = axios.create({ baseURL: API, timeout: 25000 });
+const client = axios.create({ baseURL: API, timeout: 30000 });
+attachAxiosNetworkResilience(client, { maxRetries: 3 });
 client.interceptors.request.use((cfg) => {
   cfg.headers = { ...(cfg.headers || {}), ...authHeaders() };
   return cfg;
@@ -178,6 +220,8 @@ export const api = {
   tsunamis: () => client.get('/usgs/tsunamis'),
   cyclones: () => client.get('/eonet/cyclones'),
   wildfires: () => client.get('/eonet/wildfires'),
+  /** In-app feedback → primary Worker → Discord (Bearer required). */
+  sendFeedback: (body) => client.post('/feedback', body),
 };
 
 export default client;
