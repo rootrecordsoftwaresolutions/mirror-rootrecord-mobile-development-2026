@@ -242,6 +242,7 @@ function PlanBadge({ plan, label }) {
 function formatEarnValue(earn) {
   if (!earn || typeof earn !== "object") return "—";
   const num =
+    earn.balance_display ??
     earn.balance ??
     earn.total ??
     earn.points ??
