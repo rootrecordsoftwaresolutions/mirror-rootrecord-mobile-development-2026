@@ -19,10 +19,8 @@ function methodAllowsAutoRetry(cfg) {
 
 function setNoCacheHeader(cfg) {
   const h = cfg.headers;
-  if (!h) {
-    cfg.headers = { "Cache-Control": "no-cache" };
-    return;
-  }
+  // Never replace with `{ Cache-Control }` only — axios defaults (Accept, serializers) live on AxiosHeaders.
+  if (!h) return;
   if (typeof h.set === "function") {
     if (!h.get("Cache-Control")) h.set("Cache-Control", "no-cache");
   } else if (typeof h === "object" && !Object.prototype.hasOwnProperty.call(h, "Cache-Control")) {

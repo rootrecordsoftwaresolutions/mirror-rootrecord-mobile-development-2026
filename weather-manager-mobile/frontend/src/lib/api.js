@@ -98,8 +98,10 @@ function authHeaders() {
 
 const client = axios.create({ baseURL: API, timeout: 30000 });
 attachAxiosNetworkResilience(client, { maxRetries: 3 });
+// Do not assign `cfg.headers = { ...spread }` — axios 1.x uses AxiosHeaders; spreading drops adapter state.
 client.interceptors.request.use((cfg) => {
-  cfg.headers = { ...(cfg.headers || {}), ...authHeaders() };
+  const auth = authHeaders();
+  if (auth.Authorization) cfg.headers.Authorization = auth.Authorization;
   return cfg;
 });
 
