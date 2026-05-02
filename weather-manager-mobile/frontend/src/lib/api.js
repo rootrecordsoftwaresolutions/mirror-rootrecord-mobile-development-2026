@@ -164,6 +164,11 @@ export const session = {
   ACCESS_EVENT,
 };
 
+/** Server min supported semver + Play Store link (sign-in screen). */
+export function getMobileVersionPolicy() {
+  return client.get('/mobile/version-policy', { params: { app_id: RR_APP_ID } });
+}
+
 export const api = {
   health: () => client.get('/health'),
   // auth — device_id matches desktop licenseService (Worker forwards to POST /v1/auth/*).

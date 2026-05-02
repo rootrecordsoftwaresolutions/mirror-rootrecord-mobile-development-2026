@@ -1,19 +1,43 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import * as Dialog from "@radix-ui/react-dialog";
 import { useAuth } from "../../contexts/AuthContext";
-import { formatApiError } from "../../lib/api";
+import { formatApiError, getMobileVersionPolicy } from "../../lib/api";
+import { NATIVE_APP_VERSION } from "../../lib/nativeAppVersion";
+import { semverLt } from "../../lib/semverLt";
 import { Field } from "../ui/Shell";
 import { Sprout } from "lucide-react";
 
 export default function AuthScreen() {
   const nav = useNavigate();
-  const { login, register, continueAsGuest } = useAuth();
+  const { login, register } = useAuth();
   const [mode, setMode] = useState("signin"); // signin | signup
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  /** `{ min, url }` when this build is below server min_version. */
+  const [outdated, setOutdated] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await getMobileVersionPolicy();
+        if (cancelled || !data?.min_version) return;
+        if (!semverLt(NATIVE_APP_VERSION, data.min_version)) return;
+        const key = `rr_bm_update_dismiss_${data.min_version}`;
+        if (sessionStorage.getItem(key)) return;
+        setOutdated({ min: data.min_version, url: data.update_url || "" });
+      } catch {
+        /* offline — skip */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -30,13 +54,44 @@ export default function AuthScreen() {
     }
   }
 
-  function asGuest() {
-    continueAsGuest();
-    nav("/dashboard", { replace: true });
-  }
-
   return (
     <div className="page-shell px-5 pt-14 pb-10 min-h-[100dvh] flex flex-col">
+      <Dialog.Root open={Boolean(outdated)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-[2px]" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[201] w-[min(92vw,400px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-strong bg-bg-elevated p-5 shadow-xl focus:outline-none">
+            <Dialog.Title className="font-heading text-lg font-bold text-ink-primary pr-2">
+              Update available
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-ink-secondary leading-relaxed">
+              You&apos;re on <span className="font-mono text-ink-primary">v{NATIVE_APP_VERSION}</span>. Install at least{" "}
+              <span className="font-mono text-ink-primary">v{outdated?.min}</span> for a supported experience.
+            </Dialog.Description>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                className="btn btn-primary w-full"
+                onClick={() => {
+                  if (outdated?.url) window.open(outdated.url, "_blank", "noopener,noreferrer");
+                }}
+              >
+                Open Play Store
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost w-full text-ink-secondary"
+                onClick={() => {
+                  if (outdated?.min) sessionStorage.setItem(`rr_bm_update_dismiss_${outdated.min}`, "1");
+                  setOutdated(null);
+                }}
+              >
+                Continue anyway
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
       <div className="flex flex-col items-center mb-8">
         <div className="w-14 h-14 rounded-2xl bg-brand/15 border border-brand/30 flex items-center justify-center mb-3">
           <Sprout size={28} className="text-brand" />
@@ -44,7 +99,7 @@ export default function AuthScreen() {
         <h1 className="font-heading text-2xl font-bold text-ink-primary tracking-tight">Business Manager</h1>
         <p className="text-xs text-ink-secondary mt-1">Time, clients, and operations</p>
         <p className="text-xs text-ink-tertiary mt-3 text-center max-w-[300px]">
-          Use the same email and password as your Windows installer. Your account, plan, and sync follow you across every device.
+          Sign in with your <strong className="text-ink-secondary font-medium">rootrecord.info</strong> account. Your plan and entitlements apply here.
         </p>
       </div>
 
@@ -123,16 +178,8 @@ export default function AuthScreen() {
         </button>
       </form>
 
-      <button
-        data-testid="auth-guest-btn"
-        onClick={asGuest}
-        className="btn btn-ghost mt-5 self-center text-ink-secondary text-sm"
-      >
-        Continue without an account
-      </button>
-
       <p className="text-xs text-ink-tertiary text-center mt-auto pt-6">
-        Same RootRecord sign-in and beta rewards as Weather — primary API at api.rootrecord.info.
+        Same RootRecord sign-in and beta rewards as Weather Manager.
       </p>
     </div>
   );

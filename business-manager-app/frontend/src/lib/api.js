@@ -135,3 +135,8 @@ export function earnHeartbeat(body) {
 export function earnCheckin(body) {
   return api.post("/earn/checkin", body ?? { app_id: RR_APP_ID });
 }
+
+/** Server min supported semver + Play Store link (sign-in screen). */
+export function getMobileVersionPolicy() {
+  return api.get("/mobile/version-policy", { params: { app_id: RR_APP_ID } });
+}

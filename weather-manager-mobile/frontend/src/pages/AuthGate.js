@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Cloud, ArrowRight, Loader2 } from 'lucide-react';
-import { api, session } from '../lib/api';
+import { api, session, getMobileVersionPolicy } from '../lib/api';
+import { NATIVE_APP_VERSION } from '../lib/nativeAppVersion';
+import { semverLt } from '../lib/semverLt';
 
 export default function AuthGate({ onSignedIn }) {
   const navigate = useNavigate();
@@ -10,6 +12,27 @@ export default function AuthGate({ onSignedIn }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  /** `{ min, url }` when this build is below server min_version. */
+  const [outdated, setOutdated] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await getMobileVersionPolicy();
+        if (cancelled || !data?.min_version) return;
+        if (!semverLt(NATIVE_APP_VERSION, data.min_version)) return;
+        const key = `rr_wm_update_dismiss_${data.min_version}`;
+        if (sessionStorage.getItem(key)) return;
+        setOutdated({ min: data.min_version, url: data.update_url || '' });
+      } catch {
+        /* offline — skip */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isTransientNetworkError = (e) =>
     e?.code === 'ERR_NETWORK' || String(e?.message || '').toLowerCase().includes('network error');
@@ -59,6 +82,46 @@ export default function AuthGate({ onSignedIn }) {
 
   return (
     <div className="min-h-screen bg-app flex flex-col">
+      {outdated ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-5 bg-black/80"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="wm-upd-title"
+        >
+          <div className="w-full max-w-sm bg-container border border-accent/40 rounded-sm p-5 shadow-xl">
+            <h2 id="wm-upd-title" className="text-lg font-semibold text-white mb-2">
+              Update available
+            </h2>
+            <p className="text-sm text-accent/85 leading-relaxed mb-1">
+              You&apos;re on <span className="font-mono text-white">v{NATIVE_APP_VERSION}</span>. Please install at least{' '}
+              <span className="font-mono text-white">v{outdated.min}</span> for a supported experience.
+            </p>
+            <p className="text-xs text-accent/60 mb-4">Same RootRecord account after you update.</p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="bg-accent hover:bg-accentHover text-white py-3 rounded-sm text-sm font-medium"
+                onClick={() => {
+                  if (outdated.url) window.open(outdated.url, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                Open Play Store
+              </button>
+              <button
+                type="button"
+                className="py-2 text-sm text-accent/70 hover:text-accent"
+                onClick={() => {
+                  sessionStorage.setItem(`rr_wm_update_dismiss_${outdated.min}`, '1');
+                  setOutdated(null);
+                }}
+              >
+                Continue anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm animate-slideup">
           <div className="flex items-center gap-3 mb-8">
