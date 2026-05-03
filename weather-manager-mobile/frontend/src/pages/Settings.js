@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LogOut,
@@ -15,9 +15,10 @@ import {
   MessageCircle,
   Send,
   Gift,
+  Megaphone,
 } from 'lucide-react';
-import { api, getCachedLocations, isBackendConfigured, session } from '../lib/api';
-import { formatRewardBalance, parseRewardBalance } from '../lib/rewardsFormat';
+import { NATIVE_APP_VERSION } from '../lib/nativeAppVersion';
+import { api, getCachedLocations, session } from '../lib/api';
 import { getUnits, setUnits } from '../lib/format';
 
 /** Public RootRecord links (same as rootrecord.info / credentials). */
@@ -27,10 +28,6 @@ const CONTACT = {
   discord: 'https://discord.gg/jBgRdgmsjB',
   telegram: 'https://t.me/rootrecordsupport',
 };
-
-const BETA_REWARDS_INFO_URL =
-  String(process.env.REACT_APP_BETA_REWARDS_INFO_URL || 'https://rootrecord.info/beta-tester-rewards.html').trim() ||
-  'https://rootrecord.info/beta-tester-rewards.html';
 
 function Section({ title, children, testId }) {
   return (
@@ -85,8 +82,6 @@ export default function Settings({ onSignedOut }) {
   const [locErr, setLocErr] = useState('');
   const [noaaAlertsEnabled, setNoaaAlertsEnabled] = useState(true);
   const [noaaBusy, setNoaaBusy] = useState(false);
-  const [rewardBalance, setRewardBalance] = useState(null);
-  const [rewardErr, setRewardErr] = useState('');
 
   const load = async () => {
     try {
@@ -100,50 +95,6 @@ export default function Settings({ onSignedOut }) {
     }
   };
   useEffect(() => { load(); }, []);
-
-  const loadRewardBalance = useCallback(async () => {
-    if (!session.isAuthed() || !isBackendConfigured()) {
-      setRewardErr('');
-      setRewardBalance(null);
-      return;
-    }
-    setRewardErr('');
-    const run = async () => {
-      const { data } = await api.getEarnSummary();
-      setRewardBalance(parseRewardBalance(data?.balance));
-      setRewardErr('');
-    };
-    try {
-      await run();
-    } catch {
-      try {
-        await new Promise((r) => setTimeout(r, 600));
-        await run();
-      } catch (e2) {
-        const detail = e2?.response?.data?.detail || e2?.message || '';
-        const msg = String(e2?.message || '');
-        const isNetwork =
-          !e2?.response && /network|failed to fetch|load failed|aborted|timeout|ERR_/i.test(msg);
-        setRewardBalance(null);
-        setRewardErr(
-          isNetwork
-            ? 'No connection. Check your network and tap Try again below.'
-            : (typeof detail === 'string' && detail && detail.length < 200
-                ? detail
-                : 'Could not load rewards. Tap Try again or check back later.')
-        );
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    loadRewardBalance();
-    const onVis = () => {
-      if (document.visibilityState === 'visible' && session.isAuthed()) loadRewardBalance();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, [loadRewardBalance]);
 
   // No tier gates in mobile UI.
 
@@ -223,41 +174,26 @@ export default function Settings({ onSignedOut }) {
       </Section>
 
       {isAuthed && (
-        <Section title="Beta tester rewards" testId="settings-rewards-section">
-          {rewardErr && (
-            <div
-              className="text-xs bg-sev-severe/10 border-b border-sev-severe/40 text-sev-moderate p-3 flex flex-col gap-2"
-              role="alert"
-              data-testid="settings-rewards-error"
-            >
-              <span>{rewardErr}</span>
-              <button
-                type="button"
-                onClick={() => loadRewardBalance()}
-                className="self-start text-left text-sm font-mono text-accent underline underline-offset-2"
-                data-testid="settings-rewards-retry"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-          <a
-            href={BETA_REWARDS_INFO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 w-full p-4 text-left text-white no-underline hover:bg-containerHover active:scale-[.99]"
-            data-testid="settings-rewards-link"
-          >
-            <Gift strokeWidth={1.5} className="w-4 h-4 shrink-0 text-accent" aria-hidden />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm" data-testid="settings-rewards-balance-line">
-                Beta Tester Rewards : {formatRewardBalance(rewardBalance)}
-              </div>
-            </div>
-            <ExternalLink strokeWidth={1.5} className="w-4 h-4 text-accent/70 shrink-0" aria-hidden />
-          </a>
+        <Section title="Rewards" testId="settings-rewards-section">
+          <Row
+            icon={Gift}
+            label="Testing rewards"
+            value="Balance, daily check-in, usage details"
+            onClick={() => navigate('/testing-rewards')}
+            testId="settings-open-testing-rewards"
+          />
         </Section>
       )}
+
+      <Section title="Updates" testId="settings-developer-messages-section">
+        <Row
+          icon={Megaphone}
+          label="Developer messages"
+          value="Release notes and notices from RootRecord"
+          onClick={() => navigate('/developer-messages')}
+          testId="settings-open-developer-messages"
+        />
+      </Section>
 
       <Section title="Saved locations" testId="settings-locations-section">
         {locErr && (
@@ -314,6 +250,13 @@ export default function Settings({ onSignedOut }) {
       </Section>
 
       <Section title="Contact & support" testId="settings-contact-section">
+        <Row
+          icon={Send}
+          label="Send feedback"
+          value="In-app note to the team"
+          onClick={() => navigate('/feedback')}
+          testId="settings-open-feedback"
+        />
         <ExternalLinkRow
           icon={Globe}
           label="Website"
@@ -344,7 +287,9 @@ export default function Settings({ onSignedOut }) {
         />
       </Section>
 
-      <p className="text-center text-[10px] font-mono text-accent/60 mt-8">Root Record Weather Manager Mobile · v1.0.8</p>
+      <p className="text-center text-[10px] font-mono text-accent/60 mt-8">
+        Root Record Weather Manager Mobile · v{NATIVE_APP_VERSION}
+      </p>
     </div>
   );
 }

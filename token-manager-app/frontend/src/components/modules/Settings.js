@@ -4,7 +4,7 @@ import PageHeader from "../ui/PageHeader";
 import NetworkPill from "../ui/NetworkPill";
 import AddressCopy from "../ui/AddressCopy";
 import { useWallet } from "../../contexts/WalletContext";
-import { LogOut, BookUser, Network, ChevronRight, ShieldCheck, Coins, RotateCw, Wallet } from "lucide-react";
+import { LogOut, BookUser, Network, ChevronRight, ShieldCheck, Coins, RotateCw, Wallet, Megaphone } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { earnGetSummary, formatRrApiError } from "../../lib/rrApi";
 
@@ -149,6 +149,21 @@ export default function Settings() {
             ))}
           </div>
         </div>
+
+        <button
+          onClick={() => nav("/developer-messages")}
+          className="card w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+          data-testid="settings-open-developer-messages"
+        >
+          <div className="flex items-center gap-3">
+            <Megaphone size={18} className="text-phos" />
+            <div className="text-left">
+              <div className="font-semibold text-ink-primary">Developer messages</div>
+              <div className="text-[11px] text-ink-tertiary mt-0.5">Release notes and notices from RootRecord.</div>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-ink-tertiary" />
+        </button>
 
         <button
           onClick={() => nav("/contacts")}

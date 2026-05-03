@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Home, ArrowUpRight, QrCode, History, Settings } from "lucide-react";
 import { useWallet } from "../../contexts/WalletContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 const TABS = [
   { to: "/dashboard", label: "Home", icon: Home, testid: "nav-home" },
@@ -13,9 +14,13 @@ const TABS = [
 
 export default function BottomNav() {
   const { isConnected } = useWallet();
+  const { user } = useAuth();
   const loc = useLocation();
   if (!isConnected) return null;
   if (loc.pathname === "/connect") return null;
+  if (loc.pathname === "/auth") return null;
+  if (loc.pathname.startsWith("/developer-messages")) return null;
+  if (!user) return null;
   return (
     <nav
       className="glass-bottom fixed bottom-0 inset-x-0 z-40"

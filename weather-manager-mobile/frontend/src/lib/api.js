@@ -169,6 +169,11 @@ export function getMobileVersionPolicy() {
   return client.get('/mobile/version-policy', { params: { app_id: RR_APP_ID } });
 }
 
+/** Recent developer notes (Settings). */
+export function listDeveloperMessages() {
+  return client.get('/mobile/developer-messages', { params: { app_id: RR_APP_ID } });
+}
+
 export const api = {
   health: () => client.get('/health'),
   // auth — device_id matches desktop licenseService (Worker forwards to POST /v1/auth/*).

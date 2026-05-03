@@ -140,3 +140,8 @@ export function earnCheckin(body) {
 export function getMobileVersionPolicy() {
   return api.get("/mobile/version-policy", { params: { app_id: RR_APP_ID } });
 }
+
+/** Recent developer notes (Settings → Developer messages). */
+export function listDeveloperMessages() {
+  return api.get("/mobile/developer-messages", { params: { app_id: RR_APP_ID } });
+}

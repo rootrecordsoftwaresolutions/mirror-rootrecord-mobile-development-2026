@@ -12,7 +12,10 @@ import More from "./components/modules/More";
 import WorkLog from "./components/modules/WorkLog";
 import Reports from "./components/modules/Reports";
 import Stock from "./components/modules/Stock";
+import Categories from "./components/modules/Categories";
 import { AccountSettings, BusinessSettings, ProgramSettings, About, Feedback } from "./components/modules/Settings";
+import TestingRewards from "./components/modules/TestingRewards";
+import DeveloperMessages from "./components/modules/DeveloperMessages";
 
 /** Same earn heartbeat pattern as Weather Manager — shared `rr_earn_*` balance on primary Worker. */
 function EarnHeartbeat() {
@@ -55,11 +58,14 @@ function AppRoutes() {
       <Route path="/work-log" element={<Gate><WorkLog /></Gate>} />
       <Route path="/reports" element={<Gate><Reports /></Gate>} />
       <Route path="/stock" element={<Gate><Stock /></Gate>} />
+      <Route path="/categories" element={<Gate><Categories /></Gate>} />
       <Route path="/account" element={<Gate><AccountSettings /></Gate>} />
       <Route path="/business" element={<Gate><BusinessSettings /></Gate>} />
       <Route path="/program" element={<Gate><ProgramSettings /></Gate>} />
       <Route path="/about" element={<Gate><About /></Gate>} />
       <Route path="/feedback" element={<Gate><Feedback /></Gate>} />
+      <Route path="/testing-rewards" element={<Gate><TestingRewards /></Gate>} />
+      <Route path="/developer-messages" element={<Gate><DeveloperMessages /></Gate>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

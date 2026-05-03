@@ -4,10 +4,30 @@ import AuthGate from './pages/AuthGate';
 import Home from './pages/Home';
 import Hazards from './pages/Hazards';
 import Settings from './pages/Settings';
+import Feedback from './pages/Feedback';
 import LocationMap from './pages/LocationMap';
 import TabBar from './components/TabBar';
 import GuestBanner from './components/GuestBanner';
+import TestingRewards from './pages/TestingRewards';
+import DeveloperMessages from './pages/DeveloperMessages';
 import { api, isBackendConfigured, session, RR_APP_ID } from './lib/api';
+
+/** Same earn heartbeat pattern as Business Manager — shared `rr_earn_*` balance on primary Worker. */
+function EarnHeartbeat() {
+  const location = useLocation();
+  useEffect(() => {
+    if (!session.isAuthed()) return undefined;
+    if (!isBackendConfigured()) return undefined;
+    const page = location.pathname || '/';
+    const tick = () => {
+      api.earnHeartbeat({ app_id: RR_APP_ID, page }).catch(() => {});
+    };
+    tick();
+    const id = setInterval(tick, 25_000);
+    return () => clearInterval(id);
+  }, [location.pathname]);
+  return null;
+}
 
 /** FCM push registration calls into Firebase; without google-services.json the native app can crash. */
 const ENABLE_NATIVE_PUSH = process.env.REACT_APP_ENABLE_PUSH === '1';
@@ -30,7 +50,11 @@ function useGate() {
 export default function App() {
   const { decided, authed, guest, setAuthed, setGuest } = useGate();
   const location = useLocation();
-  const hideTabs = location.pathname.startsWith('/auth') || location.pathname.startsWith('/locations/new');
+  const hideTabs =
+    location.pathname.startsWith('/auth') ||
+    location.pathname.startsWith('/locations/new') ||
+    location.pathname.startsWith('/feedback') ||
+    location.pathname.startsWith('/developer-messages');
 
   /** Best-effort: record latest device coordinates once per app session (MongoDB via FastAPI). */
   useEffect(() => {
@@ -100,19 +124,6 @@ export default function App() {
     };
   }, [decided, authed, guest]);
 
-  /** Usage rewards: heartbeat for server-side time accrual (see /api/earn/heartbeat). */
-  useEffect(() => {
-    if (!decided || !authed) return;
-    if (!isBackendConfigured()) return;
-    const page = location.pathname;
-    const send = () => {
-      api.earnHeartbeat({ appId: RR_APP_ID, page }).catch(() => {});
-    };
-    send();
-    const t = setInterval(send, 2000);
-    return () => clearInterval(t);
-  }, [decided, authed, location.pathname]);
-
   if (!decided) return <div className="h-screen w-screen bg-app" />;
   // Sign-in required.
 
@@ -125,6 +136,7 @@ export default function App() {
       }}
     >
       <GuestBanner />
+      {authed ? <EarnHeartbeat /> : null}
       <Routes>
         <Route
           path="/auth"
@@ -140,6 +152,9 @@ export default function App() {
             <Route path="/hazards" element={<Hazards />} />
             <Route path="/rootrecord" element={<Navigate to="/settings" replace />} />
             <Route path="/settings" element={<Settings onSignedOut={() => { setAuthed(false); setGuest(false); }} />} />
+            <Route path="/testing-rewards" element={<TestingRewards />} />
+            <Route path="/feedback" element={<Feedback />} />
+            <Route path="/developer-messages" element={<DeveloperMessages />} />
             <Route path="/locations/new" element={<LocationMap />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>

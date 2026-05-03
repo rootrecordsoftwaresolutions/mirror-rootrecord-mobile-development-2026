@@ -4,16 +4,19 @@ import { ScreenHeader, PageContainer, Section } from "../ui/Shell";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   ListTodo, BarChart3, Boxes, User, Briefcase, Settings as Cog,
-  HelpCircle, MessageSquare, ChevronRight, LogOut, LogIn, Sparkles,
+  HelpCircle, MessageSquare, ChevronRight, LogOut, LogIn, Sparkles, Tags, Gift, Megaphone,
 } from "lucide-react";
 
 const ITEMS = [
   { to: "/work-log", label: "Work Log", desc: "All tracked time blocks", icon: ListTodo, testid: "more-work-log" },
+  { to: "/categories", label: "Categories", desc: "Time labels — add or remove", icon: Tags, testid: "more-categories" },
   { to: "/reports", label: "Reports", desc: "Charts and PDF export", icon: BarChart3, testid: "more-reports" },
   { to: "/stock", label: "Stock & Supplies", desc: "Products and supplies", icon: Boxes, testid: "more-stock" },
   { to: "/account", label: "Account Settings", desc: "Plan, sign-in, sync", icon: User, testid: "more-account" },
   { to: "/business", label: "Business Settings", desc: "Profile, address, tax", icon: Briefcase, testid: "more-business" },
   { to: "/program", label: "Program Settings", desc: "Theme, currency, prompts", icon: Cog, testid: "more-program" },
+  { to: "/testing-rewards", label: "Testing rewards", desc: "Beta tester balance", icon: Gift, testid: "more-testing-rewards" },
+  { to: "/developer-messages", label: "Developer messages", desc: "Release notes and notices", icon: Megaphone, testid: "more-developer-messages" },
   { to: "/about", label: "About & Help", desc: "Version, principles, plans", icon: HelpCircle, testid: "more-about" },
   { to: "/feedback", label: "Feedback", desc: "Send us a note", icon: MessageSquare, testid: "more-feedback" },
 ];
