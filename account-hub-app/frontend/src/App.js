@@ -11,6 +11,9 @@ import Subscription from "./components/modules/Subscription";
 import Notifications from "./components/modules/Notifications";
 import Account from "./components/modules/Account";
 import { About, Help } from "./components/modules/Info";
+import Feedback from "./components/modules/Feedback";
+import TestingRewards from "./components/modules/TestingRewards";
+import DeveloperMessages from "./components/modules/DeveloperMessages";
 
 /** Same earn heartbeat pattern as Weather + Business — shared rr_earn_* pool. */
 function EarnHeartbeat() {
@@ -75,6 +78,9 @@ function AppRoutes() {
       <Route path="/account" element={<Gate><Account /></Gate>} />
       <Route path="/about" element={<Gate><About /></Gate>} />
       <Route path="/help" element={<Gate><Help /></Gate>} />
+      <Route path="/feedback" element={<Gate><Feedback /></Gate>} />
+      <Route path="/testing-rewards" element={<Gate><TestingRewards /></Gate>} />
+      <Route path="/developer-messages" element={<Gate><DeveloperMessages /></Gate>} />
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   );

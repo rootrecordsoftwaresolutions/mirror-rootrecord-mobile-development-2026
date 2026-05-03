@@ -111,6 +111,14 @@ export function listDeveloperMessages() {
   return rrApi.get("/mobile/developer-messages", { params: { app_id: RR_APP_ID } });
 }
 
+export function getMobileVersionPolicy() {
+  return rrApi.get("/mobile/version-policy", { params: { app_id: RR_APP_ID } });
+}
+
+export function sendFeedback(body) {
+  return rrApi.post("/feedback", body);
+}
+
 export function getMyInternalWallet() {
   return rrApi.get("/solana/my-wallet");
 }

@@ -118,6 +118,14 @@ export function earnCheckin(body) {
   return api.post("/earn/checkin", body ?? { app_id: RR_APP_ID });
 }
 
+export function getMobileVersionPolicy() {
+  return api.get("/mobile/version-policy", { params: { app_id: RR_APP_ID } });
+}
+
+export function listDeveloperMessages() {
+  return api.get("/mobile/developer-messages", { params: { app_id: RR_APP_ID } });
+}
+
 /** Notification / program preferences. Weather Manager already calls these. */
 export function getPrefs() {
   return api.get("/me/prefs");

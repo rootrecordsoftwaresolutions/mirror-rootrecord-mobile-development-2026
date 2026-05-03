@@ -13,6 +13,8 @@ import Receive from "./components/modules/Receive";
 import History from "./components/modules/History";
 import Settings from "./components/modules/Settings";
 import DeveloperMessages from "./components/modules/DeveloperMessages";
+import TestingRewards from "./components/modules/TestingRewards";
+import Feedback from "./components/modules/Feedback";
 import AddressBook from "./components/modules/AddressBook";
 import MyWallet from "./components/modules/MyWallet";
 
@@ -102,6 +104,22 @@ function AppRoutes() {
         element={
           <AuthGate>
             <Gate><DeveloperMessages /></Gate>
+          </AuthGate>
+        }
+      />
+      <Route
+        path="/testing-rewards"
+        element={
+          <AuthGate>
+            <Gate><TestingRewards /></Gate>
+          </AuthGate>
+        }
+      />
+      <Route
+        path="/feedback"
+        element={
+          <AuthGate>
+            <Gate><Feedback /></Gate>
           </AuthGate>
         }
       />
