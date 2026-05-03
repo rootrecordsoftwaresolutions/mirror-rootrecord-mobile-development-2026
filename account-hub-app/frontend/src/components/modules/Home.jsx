@@ -115,14 +115,14 @@ export default function Home() {
 
         {/* Quick access to connected apps */}
         <Section
-          title="Your apps"
+          title="App install links"
           action={
             <Link
               to="/apps"
               data-testid="home-see-all-apps"
               className="text-xs text-brand-light hover:text-brand"
             >
-              See all
+              All apps
             </Link>
           }
         >

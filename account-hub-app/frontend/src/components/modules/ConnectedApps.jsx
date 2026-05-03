@@ -1,30 +1,55 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScreenHeader, PageContainer, Section } from "../ui/Shell";
 import { REGISTERED_APPS, UPCOMING_APPS } from "../../lib/apps";
+import { api } from "../../lib/api";
+import { fmtRelative } from "../../lib/format";
 import {
   Cloud,
   Briefcase,
   ShieldCheck,
   MapPin,
   Receipt,
+  Wallet,
   ArrowUpRight,
   Check,
 } from "lucide-react";
 
-const ICONS = { Cloud, Briefcase, ShieldCheck, MapPin, Receipt };
+const ICONS = { Cloud, Briefcase, ShieldCheck, MapPin, Receipt, Wallet };
 
 export default function ConnectedApps() {
+  const [serverApps, setServerApps] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get("/me/apps");
+        if (!cancelled && Array.isArray(data)) setServerApps(data);
+      } catch {
+        if (!cancelled) setServerApps(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mergedApps = REGISTERED_APPS.map((app) => {
+    const s = serverApps?.find((x) => x.id === app.appId) || null;
+    return { ...app, server: s };
+  });
+
   return (
     <>
       <ScreenHeader
-        title="Connected apps"
-        subtitle="Everything that signs in with your RootRecord account"
+        title="RootRecord apps"
+        subtitle="Install links and beta access — same account everywhere"
         back={false}
       />
       <PageContainer>
         <Section title="Available now">
           <div className="p-3 grid grid-cols-1 gap-3">
-            {REGISTERED_APPS.map((app) => (
+            {mergedApps.map((app) => (
               <AppCard key={app.id} app={app} />
             ))}
           </div>
@@ -42,8 +67,20 @@ export default function ConnectedApps() {
           className="text-xs text-ink-tertiary text-center px-4 mt-2"
           data-testid="apps-footnote"
         >
-          Install each app from Google Play or your existing Windows installer.
-          Your Hub sign-in unlocks Pro features automatically where entitled.
+          <strong className="text-ink-secondary">Weather Manager</strong> and{" "}
+          <strong className="text-ink-secondary">Business Manager</strong>: use{" "}
+          <span className="font-mono">Open</span> to try the app, then join the{" "}
+          <a
+            className="text-brand font-semibold underline underline-offset-2"
+            href="https://groups.google.com/u/1/g/rootrecordtesting"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            RootRecord beta testing group
+          </a>{" "}
+          on Google Groups for Play internal testing access.
+          <strong className="text-ink-secondary"> Token Manager</strong> is coming soon.
+          Last activity and plan come from <span className="font-mono">GET /api/me/apps</span> when you are signed in.
         </p>
       </PageContainer>
     </>
@@ -64,7 +101,7 @@ function AppCard({ app, dimmed }) {
       } catch {
         /* no-op */
       }
-      // Fallback: offer the Play Store URL in a new tab after a short delay.
+      // Fallback: open Google Play closed-testing opt-in after a short delay.
       if (app.playStoreUrl) {
         setTimeout(() => {
           try {
@@ -116,6 +153,12 @@ function AppCard({ app, dimmed }) {
         <p className="text-xs text-ink-secondary mt-0.5 line-clamp-2">
           {app.tagline}
         </p>
+        {app.server?.last_seen_at ? (
+          <p className="text-[11px] text-ink-tertiary mt-1">
+            Last in-app activity {fmtRelative(app.server.last_seen_at)} · Plan{" "}
+            <span className="font-mono">{app.server.entitlement}</span>
+          </p>
+        ) : null}
       </div>
       {!isCurrent && !isComingSoon && (
         <button

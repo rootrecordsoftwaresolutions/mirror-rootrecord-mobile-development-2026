@@ -4,7 +4,7 @@ import { Home, Grid3x3, ShieldCheck, User } from "lucide-react";
 
 const TABS = [
   { to: "/home", label: "Home", icon: Home, testid: "nav-home" },
-  { to: "/apps", label: "Apps", icon: Grid3x3, testid: "nav-apps" },
+  { to: "/apps", label: "App links", icon: Grid3x3, testid: "nav-apps" },
   { to: "/security", label: "Security", icon: ShieldCheck, testid: "nav-security" },
   { to: "/account", label: "Account", icon: User, testid: "nav-account" },
 ];

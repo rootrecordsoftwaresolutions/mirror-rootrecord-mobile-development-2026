@@ -18,9 +18,8 @@ export const REGISTERED_APPS = [
     androidScheme: "weathermanager://open",
     androidPackage: "com.rootrecord.weathermanager",
     appId: "rootrecord_weather_manager_android",
-    // Play Store fallback URL (document only — not auto-opened here).
-    playStoreUrl:
-      "https://play.google.com/store/apps/details?id=com.rootrecord.weathermanager",
+    // RootRecord beta testing Google group (required for Play internal testing access).
+    playStoreUrl: "https://groups.google.com/u/1/g/rootrecordtesting",
     // Public distribution page used by the Weather Manager README.
     distUrl: "https://github.com/RootRecord/rootrecord-weather-manager-mobile",
   },
@@ -34,8 +33,7 @@ export const REGISTERED_APPS = [
     androidScheme: "businessmanager://open",
     androidPackage: "com.rootrecord.businessmanager",
     appId: "rootrecord_business_manager_android",
-    playStoreUrl:
-      "https://play.google.com/store/apps/details?id=com.rootrecord.businessmanager",
+    playStoreUrl: "https://groups.google.com/u/1/g/rootrecordtesting",
   },
   {
     id: "account_hub",
@@ -50,6 +48,14 @@ export const REGISTERED_APPS = [
 
 /** Future / teaser cards. Rendered dimmed under “Coming soon”. */
 export const UPCOMING_APPS = [
+  {
+    id: "token_manager",
+    name: "Token Manager",
+    tagline: "Solana wallet, sends, and RootRecord custodial tools on Android.",
+    status: "coming_soon",
+    brand: "#D946EF",
+    iconKey: "Wallet",
+  },
   {
     id: "field_logger",
     name: "Field Logger",
