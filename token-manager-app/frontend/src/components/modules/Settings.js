@@ -7,6 +7,7 @@ import { useWallet } from "../../contexts/WalletContext";
 import { LogOut, BookUser, Network, ChevronRight, ShieldCheck, Coins, RotateCw, Wallet, Megaphone, Gift, MessageSquare } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { earnGetSummary, formatRrApiError } from "../../lib/rrApi";
+import { NATIVE_APP_VERSION } from "../../lib/nativeAppVersion";
 
 const NETS = [
   { id: "mainnet-beta", label: "Mainnet", hint: "Live SOL — be careful" },
@@ -241,7 +242,7 @@ export default function Settings() {
         </button>
 
         <div className="text-center text-[11px] text-ink-tertiary pt-2">
-          RootRecord Token Manager · v0.1.0 · mobile
+          RootRecord Token Manager · v{NATIVE_APP_VERSION} · mobile
         </div>
       </div>
     </div>

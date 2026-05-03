@@ -1,6 +1,8 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { ScreenHeader, PageContainer, Section } from "../ui/Shell";
-import { Shield, Globe, Github, Mail, MessageSquare } from "lucide-react";
+import { Shield, Globe, Github, Mail, MessageSquare, Rocket } from "lucide-react";
+import { NATIVE_APP_VERSION } from "../../lib/nativeAppVersion";
 
 export function About() {
   return (
@@ -12,7 +14,9 @@ export function About() {
             <p className="font-heading text-lg text-ink-primary">
               RootRecord Account Hub
             </p>
-            <p className="text-xs text-ink-tertiary mt-1">Version 0.1.0 · Android · Capacitor 6</p>
+            <p className="text-xs text-ink-tertiary mt-1">
+              Version {NATIVE_APP_VERSION} · Android · Capacitor 6
+            </p>
             <p className="text-sm text-ink-secondary mt-4">
               The Account Hub is your home for every RootRecord app — one
               sign-in, one subscription, one place to manage security and
@@ -41,6 +45,12 @@ export function About() {
             href="https://github.com/RootRecord"
             testid="about-link-github"
           />
+          <LinkRow
+            icon={Rocket}
+            label="Custom app development"
+            href="https://rootrecord.info/app-build-request"
+            testid="about-link-app-build"
+          />
         </Section>
       </PageContainer>
     </>
@@ -59,11 +69,23 @@ export function Help() {
             href="mailto:support@rootrecord.info"
             testid="help-link-email"
           />
+          <Link
+            to="/feedback"
+            data-testid="help-link-feedback"
+            className="row hover:bg-bg-elevated no-underline text-inherit"
+          >
+            <div className="flex items-center gap-3">
+              <MessageSquare size={18} className="text-brand-light" />
+              <span className="text-sm font-semibold text-ink-primary">Send in-app feedback</span>
+            </div>
+          </Link>
+        </Section>
+        <Section title="Custom app development">
           <LinkRow
-            icon={MessageSquare}
-            label="Send feedback"
-            href="https://rootrecord.info/feedback"
-            testid="help-link-feedback"
+            icon={Rocket}
+            label="Request a tailored build"
+            href="https://rootrecord.info/app-build-request"
+            testid="help-link-app-build"
           />
         </Section>
         <p className="text-xs text-ink-tertiary px-2">

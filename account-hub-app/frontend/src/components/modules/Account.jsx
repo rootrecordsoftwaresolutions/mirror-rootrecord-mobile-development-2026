@@ -16,8 +16,7 @@ import {
   Gift,
   Megaphone,
 } from "lucide-react";
-
-const APP_VERSION = "0.1.1";
+import { NATIVE_APP_VERSION } from "../../lib/nativeAppVersion";
 
 const LINKS = [
   { to: "/security", label: "Security", desc: "Password, sessions", icon: ShieldCheck, testid: "account-link-security" },
@@ -117,7 +116,7 @@ export default function Account() {
           className="text-[11px] text-ink-tertiary text-center font-mono"
           data-testid="account-version"
         >
-          Account Hub v{APP_VERSION}
+          Account Hub v{NATIVE_APP_VERSION}
         </p>
       </PageContainer>
     </>
