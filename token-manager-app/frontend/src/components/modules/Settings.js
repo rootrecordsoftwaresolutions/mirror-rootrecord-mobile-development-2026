@@ -18,10 +18,11 @@ const NETS = [
 export default function Settings() {
   const nav = useNavigate();
   const { pubkey, mode, network, changeNetwork, disconnect } = useWallet();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshEntitlement } = useAuth();
   const [earn, setEarn] = useState(null);
   const [earnLoading, setEarnLoading] = useState(false);
   const [earnErr, setEarnErr] = useState("");
+  const [entBusy, setEntBusy] = useState(false);
 
   const loadEarn = useCallback(async () => {
     setEarnErr("");
@@ -69,22 +70,46 @@ export default function Settings() {
             )}
           </div>
           <div className="mt-3 flex gap-2">
-            {user?.email ? (
-              <button
-                className="btn btn-ghost flex-1"
-                onClick={async () => {
-                  await logout();
-                  nav("/auth", { replace: true });
-                }}
-                data-testid="settings-rr-logout"
-              >
-                <LogOut size={16} /> Sign out
-              </button>
-            ) : (
-              <button className="btn btn-primary flex-1" onClick={() => nav("/auth")} data-testid="settings-rr-login">
-                Sign in
-              </button>
-            )}
+            <div className="mt-3 flex flex-col gap-2">
+              {user?.email ? (
+                <>
+                  <div className="flex gap-2">
+                    <button
+                      className="btn btn-ghost flex-1"
+                      onClick={async () => {
+                        await logout();
+                        nav("/auth", { replace: true });
+                      }}
+                      data-testid="settings-rr-logout"
+                    >
+                      <LogOut size={16} /> Sign out
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary w-full text-xs"
+                    disabled={entBusy}
+                    onClick={async () => {
+                      setEntBusy(true);
+                      try {
+                        await refreshEntitlement();
+                      } catch (e) {
+                        console.warn("refreshEntitlement", e);
+                      } finally {
+                        setEntBusy(false);
+                      }
+                    }}
+                    data-testid="settings-refresh-entitlement"
+                  >
+                    {entBusy ? "Refreshing plan…" : "Refresh plan from server"}
+                  </button>
+                </>
+              ) : (
+                <button className="btn btn-primary w-full" onClick={() => nav("/auth")} data-testid="settings-rr-login">
+                  Sign in
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

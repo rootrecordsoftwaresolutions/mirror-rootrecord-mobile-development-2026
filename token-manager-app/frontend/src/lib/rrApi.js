@@ -119,6 +119,11 @@ export function sendFeedback(body) {
   return rrApi.post("/feedback", body);
 }
 
+/** Re-sync plan after Play purchase / Stripe (same as Account Hub + Business Manager). */
+export function refreshEntitlement() {
+  return rrApi.post("/auth/entitlement", { device_id: getRrDeviceId() });
+}
+
 export function getMyInternalWallet() {
   return rrApi.get("/solana/my-wallet");
 }
