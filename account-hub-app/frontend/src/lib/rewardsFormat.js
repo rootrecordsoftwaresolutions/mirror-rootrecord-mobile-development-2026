@@ -7,7 +7,7 @@ export function parseRewardBalance(raw) {
 
 /**
  * Headline beta-tester total from `/earn/summary`: after treasury→custodial, `balance` is still
- * lifetime ledger credits; `balance_display` (or custodial sum) is pending + hosted-wallet RRTT.
+ * lifetime ledger credits; `balance_display` (or custodial sum) is pending + RootRecord Wallet RRTT.
  */
 export function parseDisplayBalanceFromSummary(data) {
   if (!data || typeof data !== "object") return null;
@@ -30,4 +30,28 @@ export function parseDisplayBalanceFromSummary(data) {
 export function formatRewardBalance(n) {
   if (n === null) return "—";
   return Math.max(0, Math.floor(n)).toLocaleString();
+}
+
+export const SOLANA_TOOLS_ACCOUNT_URL = "https://solana.rootrecord.info/account";
+
+/**
+ * Pending = ledger credits not yet mirrored to RootRecord Wallet; wallet = RRTT on custodial (withdrawable);
+ * lifetime = program ledger total (`balance`). When `custodial_summary_attached` is false, pending/wallet are null.
+ */
+export function parseRewardBreakdownFromSummary(data) {
+  if (!data || typeof data !== "object") {
+    return { pending: null, wallet: null, lifetime: null, summaryAttached: false };
+  }
+  const lifetime = parseRewardBalance(data.balance);
+  const attached = Boolean(data.custodial_summary_attached);
+  if (!attached) {
+    return { pending: null, wallet: null, lifetime, summaryAttached: false };
+  }
+  const pending = Number.isFinite(Number(data.custodial_pending_units))
+    ? Math.max(0, Math.floor(Number(data.custodial_pending_units)))
+    : null;
+  const wallet = Number.isFinite(Number(data.custodial_available_withdraw_units))
+    ? Math.max(0, Math.floor(Number(data.custodial_available_withdraw_units)))
+    : null;
+  return { pending, wallet, lifetime, summaryAttached: true };
 }

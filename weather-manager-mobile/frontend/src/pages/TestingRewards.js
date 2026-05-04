@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Gift, ExternalLink, RefreshCw } from 'lucide-react';
 import { api, formatApiError, isBackendConfigured, session, RR_APP_ID } from '../lib/api';
-import { formatRewardBalance, parseDisplayBalanceFromSummary } from '../lib/rewardsFormat';
+import {
+  formatRewardBalance,
+  parseDisplayBalanceFromSummary,
+  parseRewardBreakdownFromSummary,
+  SOLANA_TOOLS_ACCOUNT_URL,
+} from '../lib/rewardsFormat';
 
 const BETA_REWARDS_INFO_URL =
   String(process.env.REACT_APP_BETA_REWARDS_INFO_URL || 'https://rootrecord.info/beta-tester-rewards.html').trim() ||
   'https://rootrecord.info/beta-tester-rewards.html';
+const BETA_REWARDS_PROGRAM_DETAILS_URL = `${BETA_REWARDS_INFO_URL.replace(/#.*$/, '')}#program-details`;
 
 function Section({ title, children, testId }) {
   return (
@@ -166,18 +172,42 @@ export default function TestingRewards() {
             </div>
           )}
 
-          <Section title="Balance" testId="testing-rewards-balance-section">
-            <div className="p-4">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-accent/60 mb-1">Beta tester rewards (units)</p>
-              <p className="text-3xl font-semibold tracking-tight text-accent" data-testid="testing-rewards-balance">
-                {formatRewardBalance(balance)}
+          <Section title="Rewards (RRTT units)" testId="testing-rewards-balance-section">
+            <div className="p-4 space-y-3">
+              {(() => {
+                const br = summary ? parseRewardBreakdownFromSummary(summary) : null;
+                return (
+                  <>
+                    <DetailRow label="Pending rewards" value={formatRewardBalance(br?.pending ?? null)} />
+                    <DetailRow label="Wallet balance" value={formatRewardBalance(br?.wallet ?? null)} />
+                    <DetailRow label="Lifetime rewards" value={formatRewardBalance(br?.lifetime ?? null)} />
+                  </>
+                );
+              })()}
+              <p className="text-xs text-accent/70 leading-relaxed border-t border-subtle pt-3 mt-1">
+                <strong className="text-accent">Lifetime rewards</strong> is your all-time program ledger total (credits
+                ever recorded); it is not the same as cash-out today. <strong className="text-accent">Pending</strong> is
+                credits still on RootRecord before the daily move to your RootRecord Wallet.{' '}
+                <strong className="text-accent">Wallet</strong> is RRTT already in that RootRecord Wallet on Solana. The big
+                headline is <strong className="text-accent">pending + wallet</strong> only (we do not add lifetime on
+                top). <strong className="text-accent">Withdrawable truth</strong> and cash-out:{' '}
+                <a
+                  href={SOLANA_TOOLS_ACCOUNT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent font-semibold underline underline-offset-2"
+                >
+                  solana.rootrecord.info/account
+                </a>
+                . Headline total: <span className="font-mono tabular-nums">{formatRewardBalance(balance)}</span>. Full
+                policy: Program details below.
               </p>
               <a
-                href={BETA_REWARDS_INFO_URL}
+                href={BETA_REWARDS_PROGRAM_DETAILS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="testing-rewards-info-link"
-                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-accent no-underline"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-accent no-underline"
               >
                 <Gift strokeWidth={1.5} className="w-4 h-4" aria-hidden />
                 Program details

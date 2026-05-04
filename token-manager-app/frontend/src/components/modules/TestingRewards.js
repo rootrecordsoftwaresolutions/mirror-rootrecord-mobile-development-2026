@@ -3,11 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { Gift, ExternalLink, RefreshCw, ChevronLeft } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { earnGetSummary, earnCheckin, RR_APP_ID, formatRrApiError } from "../../lib/rrApi";
-import { formatRewardBalance, parseDisplayBalanceFromSummary } from "../../lib/rewardsFormat";
+import {
+  formatRewardBalance,
+  parseDisplayBalanceFromSummary,
+  parseRewardBreakdownFromSummary,
+  SOLANA_TOOLS_ACCOUNT_URL,
+} from "../../lib/rewardsFormat";
 
 const BETA_REWARDS_INFO_URL =
   String(process.env.REACT_APP_BETA_REWARDS_INFO_URL || "https://rootrecord.info/beta-tester-rewards.html").trim() ||
   "https://rootrecord.info/beta-tester-rewards.html";
+const BETA_REWARDS_PROGRAM_DETAILS_URL = `${BETA_REWARDS_INFO_URL.replace(/#.*$/, "")}#program-details`;
 
 function DetailRow({ label, value }) {
   return (
@@ -165,24 +171,45 @@ export default function TestingRewards() {
 
             <div className="card overflow-hidden">
               <div className="px-4 py-3 border-b border-white/5 text-[10px] font-mono uppercase tracking-widest text-ink-tertiary">
-                Balance
+                Rewards (RRTT units)
               </div>
-              <div className="p-4">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-ink-tertiary mb-1">Beta tester rewards (units)</p>
-                <p className="text-3xl font-bold tracking-tight text-phos" data-testid="testing-rewards-balance">
-                  {formatRewardBalance(balance)}
+              <div className="p-4 space-y-0">
+                {(() => {
+                  const br = summary ? parseRewardBreakdownFromSummary(summary) : null;
+                  return (
+                    <>
+                      <DetailRow label="Pending rewards" value={formatRewardBalance(br?.pending ?? null)} />
+                      <DetailRow label="Wallet balance" value={formatRewardBalance(br?.wallet ?? null)} />
+                      <DetailRow label="Lifetime rewards" value={formatRewardBalance(br?.lifetime ?? null)} />
+                    </>
+                  );
+                })()}
+                <p className="text-xs text-ink-tertiary leading-relaxed px-4 py-3 border-t border-white/5">
+                  <strong className="text-ink-primary">Lifetime rewards</strong> is your all-time program ledger total
+                  (credits ever recorded); it is not the same as cash-out today.{" "}
+                  <strong className="text-ink-primary">Pending</strong> is credits still on RootRecord before the daily
+                  move to your RootRecord Wallet. <strong className="text-ink-primary">Wallet</strong> is RRTT already in
+                  that RootRecord Wallet on Solana. The headline is <strong className="text-ink-primary">pending + wallet</strong>{" "}
+                  only (we do not add lifetime on top). <strong className="text-ink-primary">Withdrawable truth</strong>:{" "}
+                  <a href={SOLANA_TOOLS_ACCOUNT_URL} target="_blank" rel="noopener noreferrer" className="text-phos font-semibold underline underline-offset-2">
+                    solana.rootrecord.info/account
+                  </a>
+                  . Headline total: <span className="font-mono tabular-nums">{formatRewardBalance(balance)}</span>. Full
+                  policy: Program details below.
                 </p>
-                <a
-                  href={BETA_REWARDS_INFO_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid="testing-rewards-info-link"
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-phos no-underline"
-                >
-                  <Gift size={16} aria-hidden />
-                  Program details
-                  <ExternalLink size={14} className="text-ink-tertiary" aria-hidden />
-                </a>
+                <div className="px-4 pb-4">
+                  <a
+                    href={BETA_REWARDS_PROGRAM_DETAILS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="testing-rewards-info-link"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-phos no-underline"
+                  >
+                    <Gift size={16} aria-hidden />
+                    Program details
+                    <ExternalLink size={14} className="text-ink-tertiary" aria-hidden />
+                  </a>
+                </div>
               </div>
             </div>
 
