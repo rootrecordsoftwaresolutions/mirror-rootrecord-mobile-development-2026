@@ -2,7 +2,7 @@
 
 ## Original problem statement
 
-Build a fully mobile version (Android-first) of the existing Solana site (`Web-Development-2026/solana/solanasite/`), placed in the `Mobile-Development-2026` pnpm monorepo, with feature parity for the core wallet flows. The mobile app is named **"RootRecord Token Manager"**. Architecture: React + Capacitor preferred. Wallet UX: never prompt for seed phrases; use external wallets via standard Phantom flows. Deliver Android debug APK build instructions.
+Build a fully mobile version (Android-first) of the existing Solana site (`RootRecord/solana-rootrecord-site`), placed in the `Mobile-Development-2026` pnpm monorepo, with feature parity for the core wallet flows. The mobile app is named **"RootRecord Token Manager"**. Architecture: React + Capacitor preferred. Wallet UX: never prompt for seed phrases; use external wallets via standard Phantom flows. Deliver Android debug APK build instructions.
 
 ## Architecture (chosen)
 

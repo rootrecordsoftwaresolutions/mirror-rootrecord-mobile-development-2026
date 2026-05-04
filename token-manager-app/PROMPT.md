@@ -1,13 +1,13 @@
 # Emergent prompt: RootRecord Token Manager (mobile Solana site)
 
-You are “Emergent”, an expert product+engineering agent. Analyze our Solana web app at `Web-Development-2026/solana/solanasite/` and build a **fully mobile** Android-first version inside this folder: **RootRecord Token Manager**.
+You are “Emergent”, an expert product+engineering agent. Analyze our Solana web app at **`RootRecord/solana-rootrecord-site`** (clone separately) and build a **fully mobile** Android-first version inside this folder: **RootRecord Token Manager**.
 
 ## Context (source of truth)
 
 - Two repos:
   - Mobile: `Mobile-Development-2026` (pnpm monorepo)
   - Web: `Web-Development-2026`
-- Solana site: `Web-Development-2026/solana/solanasite/` (Next.js)
+- Solana site: `RootRecord/solana-rootrecord-site` (Next.js)
 - Secrets safety:
   - Never commit `.env*` (except `.env.example` / `*.example`), wallet secrets, API tokens, Android keystores, `local.properties`.
   - Env edits must be surgical (only requested keys).
@@ -32,19 +32,19 @@ You are “Emergent”, an expert product+engineering agent. You will analyze ou
 - Two repos:
   - Mobile repo: `Mobile-Development-2026` (pnpm monorepo)
   - Web repo: `Web-Development-2026`
-- Solana site (web): `Web-Development-2026/solana/solanasite/` (Next.js)
-- Do **not** rely on any nested Worker copy under `solanasite/cloudflare/` (not canonical).
+- Solana site (web): `RootRecord/solana-rootrecord-site` (Next.js)
+- Do **not** rely on any nested Worker copy under the Next repo (Workers are canonical under `Web/cloudflare/rootrecord-primary`).
 - Secrets safety:
   - Never commit `credentials.env`, `.env*` (except `.env.example` / `*.example`), Android keystores, `local.properties`, wallet secrets, API tokens.
   - Env edits must be surgical (only requested keys).
 - Build tools:
-  - `pnpm` in Mobile repo; `pnpm` in `Web/solana/solanasite`
+  - `pnpm` in Mobile repo; `pnpm` in a clone of `RootRecord/solana-rootrecord-site`
   - Workers use `npm ci` (not needed unless you touch Workers)
 - If something fails: capture exact command + full error output; fix root cause (don’t skip checks).
 
 ## Objective
 
-1) Analyze the Solana site at `Web/solana/solanasite`:
+1) Analyze the Solana site in **`RootRecord/solana-rootrecord-site`**:
 
 - Identify all user flows, pages/routes, wallet-adapter usage, RPC/network configuration, token/NFT/metadata operations, any server-side calls, and environment variables required.
 - Inventory dependencies and any browser-only assumptions.
@@ -66,7 +66,7 @@ You are “Emergent”, an expert product+engineering agent. You will analyze ou
 
 Pick the best approach for “fully mobile version” based on the current site code:
 
-- Option 1: Native-like React app (preferred): new React + Capacitor app in `Mobile-Development-2026` reusing shared TS logic copied/extracted from `solanasite` where sensible.
+- Option 1: Native-like React app (preferred): new React + Capacitor app in `Mobile-Development-2026` reusing shared TS logic copied/extracted from `RootRecord/solana-rootrecord-site` where sensible.
 - Option 2: WebView wrapper: Capacitor app that loads the deployed site. Only choose if true parity is otherwise unrealistic; must still handle wallet connections cleanly and offline/latency gracefully.
 - Option 3: Hybrid: embed a local build of the site as static assets inside Capacitor and add native bridges for wallet/signing if required.
 
@@ -80,7 +80,7 @@ You must select one option and explain trade-offs (wallet support, performance, 
   - Capacitor config + `frontend/android/`
   - Wallet connect + signing flows suitable for mobile (do not store private keys in the app; use wallet adapters / external wallets)
   - Network/RPC configuration driven by env (example files only; no secrets)
-- If code can be shared from `Web/solana/solanasite`, extract/copy it carefully and keep diffs minimal.
+- If code can be shared from `RootRecord/solana-rootrecord-site`, extract/copy it carefully and keep diffs minimal.
 
 ### D) Build verification
 

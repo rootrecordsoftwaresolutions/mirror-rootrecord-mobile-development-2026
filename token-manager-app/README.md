@@ -1,6 +1,6 @@
 # RootRecord Token Manager — Mobile (Android-first)
 
-A non-custodial Solana wallet companion built as a mobile-first React + Capacitor app inside the `rootrecord-mobile-workspace` monorepo. The app provides feature parity with the Solana site (Web/solana/solanasite) for the **core flows** that matter on mobile: connect wallet, view balances, send tokens, receive (QR), view recent activity, and manage settings + an address book.
+A non-custodial Solana wallet companion built as a mobile-first React + Capacitor app inside the `rootrecord-mobile-workspace` monorepo. The app provides feature parity with the Solana site ([RootRecord/solana-rootrecord-site](https://github.com/RootRecord/solana-rootrecord-site)) for the **core flows** that matter on mobile: connect wallet, view balances, send tokens, receive (QR), view recent activity, and manage settings + an address book.
 
 > Status: **MVP** — core flows shipped (Phantom + Watch, SOL + SPL send, receive, history, contacts, RootRecord sign-in); Android debug build documented below.
 
@@ -127,6 +127,8 @@ yarn android:assemble:debug                         # build + sync + ./gradlew a
 
 Output APK: `frontend/android/app/build/outputs/apk/debug/app-debug.apk`
 
+**Release APK + AAB (workspace standard):** staged under **`builds/token-manager/`** when you run **`scripts/build-all-release-to-builds.ps1`** from the **Mobile** monorepo root. Details: **`docs/RELEASE-BUILD-OUTPUTS.md`**.
+
 Open in Android Studio for emulator runs:
 
 ```bash
@@ -137,7 +139,7 @@ yarn android:open
 
 ## Known gaps / follow-ups
 
-- **New-token Discord feed** — lives on the **Solana web site** (`Web/solana/solanasite` `/create`): webhook secret `DISCORD_TOKEN_CREATE_WEBHOOK_URL` on **RootRecord primary Worker**; Next proxies via `SOLANA_SITE_LOG_URL` (same as site action log). This mobile app does not mint SPL tokens.
+- **New-token Discord feed** — lives on the **Solana web site** (`/create` on [solana-rootrecord-site](https://github.com/RootRecord/solana-rootrecord-site)): webhook secret `DISCORD_TOKEN_CREATE_WEBHOOK_URL` on **RootRecord primary Worker**; Next proxies via `SOLANA_SITE_LOG_URL` (same as site action log). This mobile app does not mint SPL tokens.
 - **NFT metadata** — NFT tab currently lists by mint; integrating Metaplex DAS for image / name is a P1.
 - **Mobile Wallet Adapter (MWA)** — for native deep-link signing on Android we recommend integrating `@solana-mobile/mobile-wallet-adapter-protocol` once you have a target Phantom Mobile / Solflare flow in mind. Today's Phantom provider works in WebView when Phantom is installed.
 - **Watchlists / favorites** — the backend prefs schema already accommodates this; UI is not built yet.

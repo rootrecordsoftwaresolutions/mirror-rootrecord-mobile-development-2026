@@ -27,11 +27,11 @@ Both `deploy.ps1` scripts **walk up directories** until they find `credentials.e
 
 | Area | Path | Template |
 |------|------|----------|
-| Weather — CRA | `rr-weather-manager-mobile/frontend/.env.local` | `frontend/.env.local.example` |
-| Weather — production build | `rr-weather-manager-mobile/frontend/.env.production` | `frontend/.env.production.example` |
-| Weather — Python API | `rr-weather-manager-mobile/backend/.env` | `backend/.env.example` |
-| Business — CRA | `rootrecord-business-manager-app/frontend/.env.local` | `frontend/.env.example` |
-| Business — Python API | `rootrecord-business-manager-app/backend/.env` | `backend/.env.example` |
+| Weather — CRA | `weather-manager-mobile/frontend/.env.local` | `frontend/.env.local.example` |
+| Weather — production build | `weather-manager-mobile/frontend/.env.production` | `frontend/.env.production.example` |
+| Weather — Python API | `weather-manager-mobile/backend/.env` | `backend/.env.example` |
+| Business — CRA | `business-manager-app/frontend/.env.local` | `frontend/.env.example` |
+| Business — Python API | `business-manager-app/backend/.env` | `backend/.env.example` |
 
 Production mobile builds default **`https://api.rootrecord.info`**; only set `REACT_APP_BACKEND_URL` when you intentionally point at another host.
 
@@ -39,7 +39,11 @@ Production mobile builds default **`https://api.rootrecord.info`**; only set `RE
 
 Per app under `frontend/android/`: **`local.properties`**, release **keystore** + **`keystore/keystore.properties`** (Weather). Copy from your old machine if you ship signed builds.
 
+## Release APK / AAB staging (binaries gitignored under `builds/`)
+
+**Canonical output root (Mobile repo root):** `builds/` with subfolders **`token-manager`**, **`account-hub`**, **`business-manager`**, **`weather-manager`**. Automation: **`scripts/build-all-release-to-builds.ps1`**. See **`docs/RELEASE-BUILD-OUTPUTS.md`** for naming and workflow. (If your checkout lives at `Development/Mobile/`, the on-disk path is `Development/Mobile/builds/`.)
+
 ## Optional
 
-- **`Web/solana/solanasite/.env.example`** — Next/Vercel and server keys for the Solana site.
+- **`RootRecord/solana-rootrecord-site`** (clone separately) — `.env.example` for Next/Vercel and server keys for the Solana site.
 - **`Web/solana/HELE/.env`** — local only; gitignored.
