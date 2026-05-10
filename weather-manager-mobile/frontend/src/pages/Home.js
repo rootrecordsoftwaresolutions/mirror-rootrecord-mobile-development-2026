@@ -375,9 +375,9 @@ export default function Home() {
   );
 
   return (
-    <div className="animate-fadein" data-testid="home-page">
+    <div className="animate-fadein lg:mx-auto lg:max-w-[min(1400px,calc(100%-2rem))]" data-testid="home-page">
       <header
-        className="flex items-center justify-between p-4"
+        className="flex items-center justify-between p-4 lg:px-10"
         style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
       >
         <LocationPicker locations={locations} activeId={activeId} onPick={setActive} />
@@ -394,7 +394,7 @@ export default function Home() {
         </button>
       </header>
 
-      <section className="px-4">
+      <section className="px-4 lg:px-10">
         {showWeatherSkeleton ? (
           <div className="space-y-4" data-testid="home-weather-loading">
             <div className="flex items-center gap-2 text-sm text-accent/70 py-1">

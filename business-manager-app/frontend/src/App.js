@@ -16,7 +16,7 @@ import Categories from "./components/modules/Categories";
 import { AccountSettings, BusinessSettings, ProgramSettings, About, Feedback } from "./components/modules/Settings";
 import DeveloperMessages from "./components/modules/DeveloperMessages";
 
-/** Same earn heartbeat pattern as Weather Manager — shared `rr_earn_*` balance on primary Worker. */
+/** Same earn heartbeat pattern as Weather Manager — shared `rr_earn_*` balance on the API Worker. */
 function EarnHeartbeat() {
   const loc = useLocation();
   useEffect(() => {
@@ -112,7 +112,7 @@ export default function App() {
       <BrowserRouter>
         <EarnHeartbeat />
         <DailyEarnCheckin />
-        <div className="min-h-[100dvh]">
+        <div className="business-web-main min-h-[100dvh] lg:pl-56">
           <AppRoutes />
           <BottomNav />
         </div>

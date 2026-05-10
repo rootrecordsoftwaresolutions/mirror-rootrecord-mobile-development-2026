@@ -44,6 +44,18 @@ a:hover {
   padding: 1.5rem clamp(1rem, 3vw, 2rem) 3rem;
 }
 
+@media (min-width: 1280px) {
+  .app-root {
+    margin-top: 1.25rem;
+    margin-bottom: 2rem;
+    padding: 1.75rem 2rem 2.25rem;
+    border-radius: 20px;
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    background: linear-gradient(180deg, rgba(62, 207, 154, 0.04) 0%, var(--bg) 28%);
+  }
+}
+
 .site-header {
   margin-bottom: 1.75rem;
   border-radius: 16px;

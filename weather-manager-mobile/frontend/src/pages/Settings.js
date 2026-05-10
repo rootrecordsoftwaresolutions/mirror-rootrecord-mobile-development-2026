@@ -151,9 +151,12 @@ export default function Settings({ onSignedOut }) {
   const email = session.getEmail();
 
   return (
-    <div className="animate-fadein pb-8" data-testid="settings-page">
+    <div
+      className="animate-fadein pb-8 lg:mx-auto lg:max-w-[min(960px,calc(100%-2rem))] lg:px-10"
+      data-testid="settings-page"
+    >
       <header
-        className="flex items-center justify-between p-4"
+        className="flex items-center justify-between p-4 lg:px-0"
         style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
       >
         <div>

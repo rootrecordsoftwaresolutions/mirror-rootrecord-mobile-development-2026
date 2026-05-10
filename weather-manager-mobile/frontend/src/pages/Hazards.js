@@ -92,7 +92,7 @@ export default function Hazards() {
   }[tab]), [tab, eqsLoad, tsusLoad, cycLoad, firesLoad]);
 
   return (
-    <div className="animate-fadein lg:mx-auto lg:max-w-6xl" data-testid="hazards-page">
+    <div className="animate-fadein lg:mx-auto lg:max-w-[min(1400px,calc(100%-2rem))]" data-testid="hazards-page">
       <header
         className="flex items-center justify-between p-4 pb-2"
         style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}

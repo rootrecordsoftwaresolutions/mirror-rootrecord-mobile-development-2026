@@ -9,8 +9,8 @@ html, body, #root {
 body {
   margin: 0;
   font-family: 'Outfit', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  background: #081C2B;
-  color: #E7F3EC;
+  background: #060d14;
+  color: #e8f4ef;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: contain;
@@ -22,17 +22,17 @@ body {
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 
 /* Custom selection */
-::selection { background: #3FE28D; color: #04120A; }
+::selection { background: #5ee9b0; color: #04120a; }
 
 /* Tab focus ring used by buttons */
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #081C2B, 0 0 0 4px #3FE28D;
+  box-shadow: 0 0 0 2px #060d14, 0 0 0 4px #5ee9b0;
 }
 
 /* Leaflet dark tweaks */
 .leaflet-container {
-  background: #081C2B;
+  background: #060d14;
 }
 .leaflet-control-attribution {
   background: rgba(0,0,0,0.6) !important;
@@ -63,3 +63,12 @@ body {
 
 /* Tap highlight off */
 * { -webkit-tap-highlight-color: transparent; }
+
+/* Desktop web: main column reads as a browser app, not a phone slab. */
+@media (min-width: 1024px) {
+  .weather-web-main {
+    background:
+      radial-gradient(900px 420px at 70% 0%, rgba(94, 233, 176, 0.07), transparent 55%),
+      #060d14;
+  }
+}

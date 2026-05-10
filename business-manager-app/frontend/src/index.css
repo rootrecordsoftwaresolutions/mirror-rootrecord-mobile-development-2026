@@ -4,13 +4,13 @@
 
 :root {
   color-scheme: dark;
-  --bg-base: #0B1010;
-  --bg-surface: #141C1C;
-  --bg-elevated: #1E2929;
-  --ink-primary: #F8FAFA;
-  --ink-secondary: #A1B0B0;
-  --ink-tertiary: #687777;
-  --brand: #2B8A8F;
+  --bg-base: #080c0c;
+  --bg-surface: #101818;
+  --bg-elevated: #182222;
+  --ink-primary: #f4faf9;
+  --ink-secondary: #9cb0ae;
+  --ink-tertiary: #5c6e6c;
+  --brand: #34a8a3;
 }
 
 html, body, #root {
@@ -139,11 +139,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-/* Page width: mobile constrained */
+/* Mobile: narrow column; desktop: use width with sidebar */
 .page-shell {
   max-width: 480px;
   margin: 0 auto;
   width: 100%;
+}
+@media (min-width: 1024px) {
+  .page-shell {
+    max-width: min(1280px, 100%);
+    margin-left: 0;
+    margin-right: auto;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .business-web-main {
+    min-height: 100dvh;
+    background: linear-gradient(165deg, rgba(52, 168, 163, 0.06) 0%, transparent 42%), var(--bg-base);
+  }
 }
 
 /*
