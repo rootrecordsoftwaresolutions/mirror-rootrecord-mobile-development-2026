@@ -13,7 +13,7 @@ import AlertDetail from './pages/AlertDetail';
 import { api, isBackendConfigured, session, RR_APP_ID } from './lib/api';
 import { safeLocalStorage, safeSessionStorage } from './lib/storage';
 
-/** Same earn heartbeat pattern as Business Manager — shared `rr_earn_*` balance on primary Worker. */
+/** Same earn heartbeat pattern as Business Manager — shared `rr_earn_*` balance on the API Worker. */
 function EarnHeartbeat() {
   const location = useLocation();
   useEffect(() => {
@@ -166,10 +166,9 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-app text-white"
+      className="min-h-screen bg-app text-white lg:pl-56 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
       }}
     >
       <GuestBanner />

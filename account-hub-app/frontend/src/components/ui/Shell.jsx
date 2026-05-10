@@ -7,8 +7,12 @@ export function ScreenHeader({ title, subtitle, back = true, right = null }) {
   return (
     <header
       data-testid="screen-header"
-      className="px-4 pt-4 pb-3 sticky top-0 z-30 glass-bottom"
-      style={{ borderTop: "none", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+      className="px-4 pb-3 sticky top-0 z-30 glass-bottom"
+      style={{
+        borderTop: "none",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
+      }}
     >
       <div className="page-shell flex items-center gap-2">
         {back && (
@@ -36,7 +40,7 @@ export function ScreenHeader({ title, subtitle, back = true, right = null }) {
 }
 
 export function PageContainer({ children, className = "" }) {
-  return <div className={`page-shell px-4 pt-4 pb-28 ${className}`}>{children}</div>;
+  return <div className={`page-shell px-4 pt-4 pb-28 lg:pb-10 ${className}`}>{children}</div>;
 }
 
 export function Section({ title, children, action }) {
@@ -97,8 +101,7 @@ export function Toast({ message, kind = "info", onDone }) {
   };
   return (
     <div
-      className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none"
-      style={{ bottom: "calc(80px + env(safe-area-inset-bottom))" }}
+      className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none bottom-[calc(80px+env(safe-area-inset-bottom,0px))] lg:bottom-8 lg:left-56"
     >
       <div
         data-testid="toast"

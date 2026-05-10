@@ -169,7 +169,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   max-width: 480px;
   margin: 0 auto;
   width: 100%;
-  padding-bottom: 96px; /* space for bottom nav */
+  padding-bottom: 96px; /* space for bottom nav (mobile) */
+}
+@media (min-width: 1024px) {
+  .page-shell {
+    max-width: min(1120px, 100%);
+    margin-left: 0;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-bottom: 2rem;
+  }
 }
 
 .divider {

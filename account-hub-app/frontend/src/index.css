@@ -167,10 +167,20 @@ button:focus-visible {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* Mobile: readable column; desktop: full main column beside sidebar (see App.js lg:pl-56). */
 .page-shell {
   max-width: 480px;
   margin: 0 auto;
   width: 100%;
+}
+@media (min-width: 1024px) {
+  .page-shell {
+    max-width: min(960px, 100%);
+    margin-left: 0;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 
 /* Entrance animations */

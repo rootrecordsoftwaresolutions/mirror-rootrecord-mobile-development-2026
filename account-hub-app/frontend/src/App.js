@@ -91,7 +91,7 @@ export default function App() {
     <AuthProvider>
       <EarnHeartbeat />
       <div
-        className="min-h-[100dvh]"
+        className="min-h-[100dvh] lg:pl-56"
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",
         }}

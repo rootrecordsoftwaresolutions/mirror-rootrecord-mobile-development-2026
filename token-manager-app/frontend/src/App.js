@@ -150,7 +150,7 @@ export default function App() {
       <WalletProvider>
         <ToastProvider>
           <BrowserRouter>
-            <div className="min-h-[100dvh]" data-testid="app-root">
+            <div className="min-h-[100dvh] lg:pl-56" data-testid="app-root">
               <EarnHeartbeat />
               <AppRoutes />
               <BottomNav />

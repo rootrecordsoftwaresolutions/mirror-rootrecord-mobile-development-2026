@@ -37,7 +37,7 @@ export function ScreenHeader({ title, subtitle, back = true, right = null }) {
 
 export function PageContainer({ children, className = "" }) {
   return (
-    <div className={`page-shell px-4 pt-4 pb-28 ${className}`}>{children}</div>
+    <div className={`page-shell px-4 pt-4 pb-28 lg:pb-10 ${className}`}>{children}</div>
   );
 }
 
@@ -96,7 +96,7 @@ export function Toast({ message, kind = "info", onDone }) {
     error: "bg-[rgba(244,63,94,0.15)] text-[#FB7185] border-[rgba(244,63,94,0.35)]",
   };
   return (
-    <div className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none" style={{ bottom: "calc(80px + env(safe-area-inset-bottom))" }}>
+    <div className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none bottom-[calc(80px+env(safe-area-inset-bottom,0px))] lg:bottom-8 lg:left-56">
       <div data-testid="toast" className={`pointer-events-auto px-4 py-2.5 rounded-xl border text-sm font-medium ${colors[kind] || colors.info}`}>
         {message}
       </div>
