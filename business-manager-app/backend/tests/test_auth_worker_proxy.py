@@ -170,11 +170,11 @@ def test_options_preflight_login(session):
 
 
 # ---------------- User isolation + seed data ----------------
-def test_new_account_has_12_categories_and_1_business(account_a, session):
+def test_new_account_has_no_categories_and_one_business(account_a, session):
     h = {"Authorization": f"Bearer {account_a['token']}"}
     cats = session.get(f"{API}/categories", headers=h)
     assert cats.status_code == 200
-    assert len(cats.json()) == 12, f"expected 12 seeded categories, got {len(cats.json())}"
+    assert len(cats.json()) == 0, f"expected no seeded categories, got {len(cats.json())}"
 
     biz = session.get(f"{API}/businesses", headers=h)
     assert biz.status_code == 200

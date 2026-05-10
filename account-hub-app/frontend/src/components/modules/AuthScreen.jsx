@@ -194,7 +194,7 @@ export default function AuthScreen() {
       </form>
 
       <p className="text-xs text-ink-tertiary text-center mt-auto pt-6">
-        Primary API — api.rootrecord.info · Shared earn balance with Weather and Business.
+        Web builds use the account API shard; Android uses the shared primary API. Shared earn balance with Weather and Business.
       </p>
     </div>
   );

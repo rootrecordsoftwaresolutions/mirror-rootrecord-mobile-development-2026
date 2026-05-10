@@ -14,11 +14,11 @@ import {
   ExternalLink,
   MessageCircle,
   Send,
-  Gift,
   Megaphone,
 } from 'lucide-react';
 import { NATIVE_APP_VERSION } from '../lib/nativeAppVersion';
 import { api, getCachedLocations, session } from '../lib/api';
+import { safeLocalStorage } from '../lib/storage';
 import { getUnits, setUnits } from '../lib/format';
 
 /** Public RootRecord links (same as rootrecord.info / credentials). */
@@ -27,6 +27,8 @@ const CONTACT = {
   contact: 'https://rootrecord.info/contact.html',
   discord: 'https://discord.gg/jBgRdgmsjB',
   telegram: 'https://t.me/rootrecordsupport',
+  rewards: String(process.env.REACT_APP_BETA_REWARDS_INFO_URL || 'https://rootrecord.info/beta-tester-rewards.html').trim() ||
+    'https://rootrecord.info/beta-tester-rewards.html',
 };
 
 function Section({ title, children, testId }) {
@@ -82,6 +84,9 @@ export default function Settings({ onSignedOut }) {
   const [locErr, setLocErr] = useState('');
   const [noaaAlertsEnabled, setNoaaAlertsEnabled] = useState(true);
   const [noaaBusy, setNoaaBusy] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
+  const [debugText, setDebugText] = useState('');
+  const [debugOpen, setDebugOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -173,17 +178,14 @@ export default function Settings({ onSignedOut }) {
         )}
       </Section>
 
-      {isAuthed && (
-        <Section title="Rewards" testId="settings-rewards-section">
-          <Row
-            icon={Gift}
-            label="Testing rewards"
-            value="Balance, daily check-in, usage details"
-            onClick={() => navigate('/testing-rewards')}
-            testId="settings-open-testing-rewards"
-          />
-        </Section>
-      )}
+      <Section title="Rewards" testId="settings-rewards-section">
+        <ExternalLinkRow
+          label="Rewards program"
+          hint="Beta tester rewards — details and policy"
+          href={CONTACT.rewards}
+          testId="settings-rewards-link"
+        />
+      </Section>
 
       <Section title="Updates" testId="settings-developer-messages-section">
         <Row
@@ -206,7 +208,11 @@ export default function Settings({ onSignedOut }) {
             <MapPin strokeWidth={1.5} className="w-4 h-4 text-accent" />
             <div className="flex-1 min-w-0">
               <div className="text-sm truncate">{l.name}</div>
-              <div className="text-[10px] font-mono text-accent/70">{l.latitude.toFixed(4)}, {l.longitude.toFixed(4)}</div>
+              <div className="text-[10px] font-mono text-accent/70">
+                {Number.isFinite(Number(l.latitude)) && Number.isFinite(Number(l.longitude))
+                  ? `${Number(l.latitude).toFixed(4)}, ${Number(l.longitude).toFixed(4)}`
+                  : '—'}
+              </div>
             </div>
             <button
               onClick={() => removeLoc(l.id)}
@@ -288,8 +294,73 @@ export default function Settings({ onSignedOut }) {
       </Section>
 
       <p className="text-center text-[10px] font-mono text-accent/60 mt-8">
-        Root Record Weather Manager Mobile · v{NATIVE_APP_VERSION}
+        <button
+          type="button"
+          className="text-inherit bg-transparent border-0 p-0 m-0 font-inherit"
+          onClick={() => {
+            const next = tapCount + 1;
+            setTapCount(next);
+            if (next >= 7) {
+              setTapCount(0);
+              const raw = safeLocalStorage.getItem('rrwm.lastFatal');
+              setDebugText(raw || 'No stored fatal error.');
+              setDebugOpen(true);
+            }
+          }}
+          aria-label="Version"
+          data-testid="settings-version"
+        >
+          Root Record Weather Manager Mobile · v{NATIVE_APP_VERSION}
+        </button>
       </p>
+
+      {debugOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-5 bg-black/80" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg bg-container border border-subtle rounded-sm p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <div className="text-sm font-semibold text-white">Debug info</div>
+                <div className="text-[10px] font-mono text-accent/70 uppercase tracking-widest">Hidden · for internal support</div>
+              </div>
+              <button
+                type="button"
+                className="text-xs font-mono text-accent underline underline-offset-2"
+                onClick={() => setDebugOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words bg-app border border-subtle p-3 max-h-[50vh] overflow-auto">
+              {debugText}
+            </pre>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="px-3 py-2 rounded-sm bg-accent text-white text-sm font-semibold"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(debugText || '');
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                className="px-3 py-2 rounded-sm border border-subtle text-white text-sm font-semibold"
+                onClick={() => {
+                  safeLocalStorage.removeItem('rrwm.lastFatal');
+                  setDebugText('Cleared.');
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

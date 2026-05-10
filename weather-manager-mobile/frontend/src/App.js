@@ -8,9 +8,10 @@ import Feedback from './pages/Feedback';
 import LocationMap from './pages/LocationMap';
 import TabBar from './components/TabBar';
 import GuestBanner from './components/GuestBanner';
-import TestingRewards from './pages/TestingRewards';
 import DeveloperMessages from './pages/DeveloperMessages';
+import AlertDetail from './pages/AlertDetail';
 import { api, isBackendConfigured, session, RR_APP_ID } from './lib/api';
+import { safeLocalStorage, safeSessionStorage } from './lib/storage';
 
 /** Same earn heartbeat pattern as Business Manager — shared `rr_earn_*` balance on primary Worker. */
 function EarnHeartbeat() {
@@ -38,13 +39,20 @@ function useGate() {
   const [guest, setGuest] = useState(false);
 
   useEffect(() => {
-    // Sign-in required: no guest mode.
-    setAuthed(session.isAuthed());
-    setGuest(false);
-    setDecided(true);
+    try {
+      setAuthed(session.isAuthed());
+      setGuest(false);
+    } finally {
+      setDecided(true);
+    }
   }, []);
 
   return { decided, authed, guest, setAuthed, setGuest };
+}
+
+function utcYmd() {
+  // YYYY-MM-DD in UTC (matches Worker earn summary ymd).
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function App() {
@@ -54,14 +62,15 @@ export default function App() {
     location.pathname.startsWith('/auth') ||
     location.pathname.startsWith('/locations/new') ||
     location.pathname.startsWith('/feedback') ||
-    location.pathname.startsWith('/developer-messages');
+    location.pathname.startsWith('/developer-messages') ||
+    location.pathname.startsWith('/alert');
 
   /** Best-effort: record latest device coordinates once per app session (MongoDB via FastAPI). */
   useEffect(() => {
     if (!decided || (!authed && !guest)) return;
-    if (!isBackendConfigured() || typeof sessionStorage === 'undefined') return;
-    if (sessionStorage.getItem('rrwm.deviceLocationAttempted')) return;
-    sessionStorage.setItem('rrwm.deviceLocationAttempted', '1');
+    if (!isBackendConfigured()) return;
+    if (safeSessionStorage.getItem('rrwm.deviceLocationAttempted')) return;
+    safeSessionStorage.setItem('rrwm.deviceLocationAttempted', '1');
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -79,6 +88,34 @@ export default function App() {
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
     );
   }, [decided, authed, guest]);
+
+  /** Automatically attempt daily check-in once per UTC day on app open / foreground. */
+  useEffect(() => {
+    if (!decided || !authed) return undefined;
+    if (!isBackendConfigured()) return undefined;
+    const KEY = 'rrwm.dailyCheckin.lastAttemptYmd';
+    let cancelled = false;
+    const attempt = async () => {
+      if (cancelled) return;
+      const today = utcYmd();
+      if (safeLocalStorage.getItem(KEY) === today) return;
+      safeLocalStorage.setItem(KEY, today);
+      try {
+        await api.earnCheckin({ app_id: RR_APP_ID });
+      } catch {
+        // Ignore network/server errors; we'll retry next foreground/open.
+      }
+    };
+    attempt();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') attempt();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [decided, authed]);
 
   /** Native only: register FCM token (opt-in — set REACT_APP_ENABLE_PUSH=1 when Firebase is configured). */
   useEffect(() => {
@@ -152,10 +189,10 @@ export default function App() {
             <Route path="/hazards" element={<Hazards />} />
             <Route path="/rootrecord" element={<Navigate to="/settings" replace />} />
             <Route path="/settings" element={<Settings onSignedOut={() => { setAuthed(false); setGuest(false); }} />} />
-            <Route path="/testing-rewards" element={<TestingRewards />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/developer-messages" element={<DeveloperMessages />} />
             <Route path="/locations/new" element={<LocationMap />} />
+            <Route path="/alert" element={<AlertDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

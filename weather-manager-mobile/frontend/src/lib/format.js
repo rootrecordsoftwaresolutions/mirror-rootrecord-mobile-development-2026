@@ -1,14 +1,15 @@
 // Small formatting + unit helpers for the mobile UI.
 import { useEffect, useState } from 'react';
+import { safeLocalStorage } from './storage';
 
 const STORAGE_UNITS_KEY = 'rrwm.units';
 const UNITS_EVENT = 'rrwm.units.changed';
 
 export function getUnits() {
-  return localStorage.getItem(STORAGE_UNITS_KEY) === 'metric' ? 'metric' : 'imperial';
+  return safeLocalStorage.getItem(STORAGE_UNITS_KEY) === 'metric' ? 'metric' : 'imperial';
 }
 export function setUnits(u) {
-  localStorage.setItem(STORAGE_UNITS_KEY, u === 'metric' ? 'metric' : 'imperial');
+  safeLocalStorage.setItem(STORAGE_UNITS_KEY, u === 'metric' ? 'metric' : 'imperial');
   try {
     // Same-tab updates don't reliably fire `storage`, so we emit our own.
     window.dispatchEvent(new Event(UNITS_EVENT));
@@ -73,16 +74,20 @@ export function fmtTemp(value, fromUnit) {
 
 export function fmtSpeedKmH(kmh) {
   if (kmh === null || kmh === undefined) return '—';
+  const n = Number(kmh);
+  if (!Number.isFinite(n)) return '—';
   const u = getUnits();
-  if (u === 'imperial') return Math.round(kmh / 1.609) + ' mph';
-  return Math.round(kmh) + ' km/h';
+  if (u === 'imperial') return Math.round(n / 1.609) + ' mph';
+  return Math.round(n) + ' km/h';
 }
 
 export function fmtMileOrKm(miles) {
   if (miles === null || miles === undefined) return '—';
+  const n = Number(miles);
+  if (!Number.isFinite(n)) return '—';
   const u = getUnits();
-  if (u === 'imperial') return miles.toFixed(0) + ' mi';
-  return Math.round(miles * 1.609) + ' km';
+  if (u === 'imperial') return n.toFixed(0) + ' mi';
+  return Math.round(n * 1.609) + ' km';
 }
 
 export function fmtKmOrMi(km, digits = 1) {

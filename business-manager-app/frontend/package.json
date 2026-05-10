@@ -1,6 +1,6 @@
 {
   "name": "rootrecord-business-manager-mobile",
-  "version": "1.06",
+  "version": "1.10",
   "private": true,
   "homepage": ".",
   "dependencies": {
@@ -48,7 +48,9 @@
     "android:copy-artifacts": "node scripts/copy-android-artifacts.js",
     "android:apk": "npm run build && npx cap sync android && cd android && .\\gradlew.bat clean assembleRelease && cd .. && node scripts/copy-android-artifacts.js apk",
     "android:bundle:release": "npm run build && npx cap sync android && cd android && .\\gradlew.bat bundleRelease && cd .. && node scripts/copy-android-artifacts.js aab",
-    "android:apk-and-bundle": "npm run build && npx cap sync android && cd android && .\\gradlew.bat clean assembleRelease bundleRelease && cd .. && node scripts/copy-android-artifacts.js all"
+    "android:apk-and-bundle": "npm run build && npx cap sync android && cd android && .\\gradlew.bat clean assembleRelease bundleRelease && cd .. && node scripts/copy-android-artifacts.js all",
+    "pages:deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/deploy-product-web-to-pages.ps1 -ProjectName rootrecord-business-web",
+    "pages:deploy:only": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/deploy-product-web-to-pages.ps1 -ProjectName rootrecord-business-web -SkipBuild"
   },
   "eslintConfig": {
     "extends": [
@@ -67,10 +69,16 @@
       "last 1 safari version"
     ]
   },
+  "overrides": {
+    "fork-ts-checker-webpack-plugin": "6.5.3"
+  },
   "devDependencies": {
+    "ajv": "8.12.0",
+    "typescript": "4.9.5",
     "@capacitor/cli": "^6.2.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.13"
+    "tailwindcss": "^3.4.13",
+    "wrangler": "^3.114.0"
   }
 }

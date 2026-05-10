@@ -1,5 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api, getToken, setToken, getDeviceId } from "../lib/api";
+import { loadProgramSettingsLocal, toProgramSettingsPatch } from "../lib/programSettings";
+
+/** Merge device `localStorage` program prefs into D1 via PATCH /settings (non-blocking). */
+function mergeDeviceProgramSettingsToCloud() {
+  void (async () => {
+    try {
+      await api.patch("/settings", toProgramSettingsPatch(loadProgramSettingsLocal()));
+    } catch {
+      /* offline or server error — Program Settings screen can retry */
+    }
+  })();
+}
 
 const AuthCtx = createContext(null);
 
@@ -95,11 +107,12 @@ export function AuthProvider({ children }) {
     setGuest(false);
     const u = userFromAuthPayload(data);
     setUser(u);
+    mergeDeviceProgramSettingsToCloud();
     return u;
   }, []);
 
   const register = useCallback(async (email, password, name) => {
-    const { data } = await postWithRetry("/auth/signup", {
+    const { data } = await postWithRetry("/auth/register", {
       email,
       password,
       device_id: getDeviceId(),
@@ -111,6 +124,7 @@ export function AuthProvider({ children }) {
     setGuest(false);
     const u = userFromAuthPayload(data, name);
     setUser(u);
+    mergeDeviceProgramSettingsToCloud();
     return u;
   }, []);
 
@@ -132,12 +146,6 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const continueAsGuest = useCallback(() => {
-    localStorage.setItem("rrbm_guest", "1");
-    setGuest(true);
-    setUser(null);
-  }, []);
-
   const exitGuest = useCallback(() => {
     localStorage.removeItem("rrbm_guest");
     setGuest(false);
@@ -145,7 +153,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthCtx.Provider
-      value={{ user, guest, login, register, logout, continueAsGuest, exitGuest, refresh, refreshEntitlement }}
+      value={{ user, guest, login, register, logout, exitGuest, refresh, refreshEntitlement }}
     >
       {children}
     </AuthCtx.Provider>

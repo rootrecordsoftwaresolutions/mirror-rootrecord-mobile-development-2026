@@ -38,10 +38,12 @@ Native project: **`frontend/android/`** (Capacitor 6). This dev PC uses **JDK 17
 
 **Debug APK (CLI):** from **`frontend/`**, run **`pnpm run android:assemble`**. Output: **`frontend/android/app/build/outputs/apk/debug/RootRecord-Weather.apk`** (release: **`.../release/RootRecord-Weather-release.apk`**).
 
+**Workspace standard — all apps’ release APK + AAB:** from the **Mobile** monorepo root, staged copies live under **`builds/weather-manager/`** (sibling folders for other apps). Run **`scripts/build-all-release-to-builds.ps1`**, or see **`docs/RELEASE-BUILD-OUTPUTS.md`** (repo root = folder that contains `scripts/` and `builds/`).
+
 **Android Studio:** open **`frontend/android`**, sync Gradle, choose a device or emulator, **Run**. Double-click **`open-weather-android-studio.bat`** in this repo root, or run **`pnpm run android:open`** from **`frontend/`**.
 
 **Google Play upload-ready AAB (one command):** from **`frontend/`**, run **`pnpm run android:play:ready`**.  
-This runs web build + Capacitor sync + `gradlew bundleRelease`, then copies the signed AAB into **`frontend/release/`** with a versioned filename.
+This runs web build + Capacitor sync + `gradlew bundleRelease`, then copies the signed AAB into **`frontend/release/`** with a versioned filename. For a **single place** that holds every app’s release APK/AAB together, prefer **`builds/`** at the Mobile repo root (see above).
 
 Scripts in `frontend/package.json`: `cap:sync`, `android:open`, `android:build`, `android:assemble`, `android:play:ready`.
 

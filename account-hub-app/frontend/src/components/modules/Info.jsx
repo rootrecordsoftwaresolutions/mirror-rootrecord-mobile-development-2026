@@ -21,7 +21,7 @@ export function About() {
               The Account Hub is your home for every RootRecord app — one
               sign-in, one subscription, one place to manage security and
               preferences. It shares the primary API at{" "}
-              <span className="font-mono">api.rootrecord.info</span> with
+              <span className="font-mono">RootRecord API</span> with
               Weather Manager and Business Manager.
             </p>
           </div>

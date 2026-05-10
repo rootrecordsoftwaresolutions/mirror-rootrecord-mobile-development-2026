@@ -1,8 +1,20 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 import { attachAxiosNetworkResilience } from './httpResilience';
+import { safeLocalStorage } from './storage';
 
-// Default: custom domain for `rootrecord-primary` Worker (base URL only — no trailing slash, no /api; client adds /api).
-const DEFAULT_BACKEND = 'https://api.rootrecord.info';
+// Native Android (Capacitor): shared primary. Product web (Pages): per-app shard Worker.
+const PRIMARY_BACKEND = 'https://api.rootrecord.info';
+const SHARD_WEB_BACKEND = 'https://rootrecord-api-weather.rootrecord.workers.dev';
+
+function defaultBackend() {
+  try {
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.()) return PRIMARY_BACKEND;
+  } catch {
+    /* no-op */
+  }
+  return SHARD_WEB_BACKEND;
+}
 
 function normalizeBackendBase(raw) {
   let base = String(raw ?? '')
@@ -34,7 +46,7 @@ function isLocalDevBackend(base) {
 const fromEnv = normalizeBackendBase(process.env.REACT_APP_BACKEND_URL);
 const useProdFallback =
   process.env.NODE_ENV === 'production' && fromEnv && isLocalDevBackend(fromEnv);
-const BACKEND = useProdFallback ? DEFAULT_BACKEND : fromEnv || DEFAULT_BACKEND;
+const BACKEND = useProdFallback ? PRIMARY_BACKEND : fromEnv || defaultBackend();
 const API = `${BACKEND}/api`;
 
 /** Ecosystem id for per-app earn/reward analytics (server + this build). */
@@ -82,16 +94,16 @@ const STORAGE_KEYS = {
 const ACCESS_EVENT = 'rrwm.access.changed';
 
 function ensureGuestId() {
-  let g = localStorage.getItem(STORAGE_KEYS.guest);
+  let g = safeLocalStorage.getItem(STORAGE_KEYS.guest);
   if (!g) {
     g = 'g_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-    localStorage.setItem(STORAGE_KEYS.guest, g);
+    safeLocalStorage.setItem(STORAGE_KEYS.guest, g);
   }
   return g;
 }
 
 function authHeaders() {
-  const token = localStorage.getItem(STORAGE_KEYS.token);
+  const token = safeLocalStorage.getItem(STORAGE_KEYS.token);
   if (token) return { Authorization: `Bearer ${token}` };
   return {};
 }
@@ -105,11 +117,26 @@ client.interceptors.request.use((cfg) => {
   return cfg;
 });
 
+/**
+ * SQLite / JSON sometimes yields numeric lat/lon as strings. Coerce so UI `.toFixed` never throws
+ * (uncaught render errors → blank WebView).
+ */
+export function normalizeLocationRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const id = row.id != null ? String(row.id) : '';
+  const name = String(row.name ?? '').trim();
+  const lat = Number(row.latitude);
+  const lon = Number(row.longitude);
+  if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { ...row, id, name, latitude: lat, longitude: lon };
+}
+
 export function getCachedLocations() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.locationsCache);
+    const raw = safeLocalStorage.getItem(STORAGE_KEYS.locationsCache);
     const data = JSON.parse(raw || '[]');
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+    return data.map(normalizeLocationRow).filter(Boolean);
   } catch {
     return [];
   }
@@ -117,46 +144,46 @@ export function getCachedLocations() {
 
 function setCachedLocations(rows) {
   try {
-    const safe = Array.isArray(rows) ? rows : [];
-    localStorage.setItem(STORAGE_KEYS.locationsCache, JSON.stringify(safe));
+    const safe = (Array.isArray(rows) ? rows : []).map(normalizeLocationRow).filter(Boolean);
+    safeLocalStorage.setItem(STORAGE_KEYS.locationsCache, JSON.stringify(safe));
   } catch {
     /* quota / private mode */
   }
 }
 
 export const session = {
-  getToken: () => localStorage.getItem(STORAGE_KEYS.token),
-  getEmail: () => localStorage.getItem(STORAGE_KEYS.email) || '',
-  isAuthed: () => Boolean(localStorage.getItem(STORAGE_KEYS.token)),
-  isGuest: () => !localStorage.getItem(STORAGE_KEYS.token),
-  isPro: () => localStorage.getItem(STORAGE_KEYS.pro) === '1',
-  isLifeMember: () => localStorage.getItem(STORAGE_KEYS.life) === '1',
+  getToken: () => safeLocalStorage.getItem(STORAGE_KEYS.token),
+  getEmail: () => safeLocalStorage.getItem(STORAGE_KEYS.email) || '',
+  isAuthed: () => Boolean(safeLocalStorage.getItem(STORAGE_KEYS.token)),
+  isGuest: () => !safeLocalStorage.getItem(STORAGE_KEYS.token),
+  isPro: () => safeLocalStorage.getItem(STORAGE_KEYS.pro) === '1',
+  isLifeMember: () => safeLocalStorage.getItem(STORAGE_KEYS.life) === '1',
   getProCheckedAtMs: () => {
-    const raw = localStorage.getItem(STORAGE_KEYS.proCheckedAt);
+    const raw = safeLocalStorage.getItem(STORAGE_KEYS.proCheckedAt);
     const n = Number(raw);
     return Number.isFinite(n) ? n : 0;
   },
   setSession: (token, email, pro, lifeMember) => {
-    localStorage.setItem(STORAGE_KEYS.token, token || '');
-    localStorage.setItem(STORAGE_KEYS.email, email || '');
-    localStorage.setItem(STORAGE_KEYS.pro, pro ? '1' : '0');
-    localStorage.setItem(STORAGE_KEYS.life, lifeMember ? '1' : '0');
+    safeLocalStorage.setItem(STORAGE_KEYS.token, token || '');
+    safeLocalStorage.setItem(STORAGE_KEYS.email, email || '');
+    safeLocalStorage.setItem(STORAGE_KEYS.pro, pro ? '1' : '0');
+    safeLocalStorage.setItem(STORAGE_KEYS.life, lifeMember ? '1' : '0');
     // If this user isn't lifetime, treat sign-in as a tier check.
-    if (!lifeMember) localStorage.setItem(STORAGE_KEYS.proCheckedAt, String(Date.now()));
+    if (!lifeMember) safeLocalStorage.setItem(STORAGE_KEYS.proCheckedAt, String(Date.now()));
     try { window.dispatchEvent(new Event(ACCESS_EVENT)); } catch { /* ignore */ }
   },
   setAccess: (pro, lifeMember) => {
-    localStorage.setItem(STORAGE_KEYS.pro, pro ? '1' : '0');
-    localStorage.setItem(STORAGE_KEYS.life, lifeMember ? '1' : '0');
-    if (!lifeMember) localStorage.setItem(STORAGE_KEYS.proCheckedAt, String(Date.now()));
+    safeLocalStorage.setItem(STORAGE_KEYS.pro, pro ? '1' : '0');
+    safeLocalStorage.setItem(STORAGE_KEYS.life, lifeMember ? '1' : '0');
+    if (!lifeMember) safeLocalStorage.setItem(STORAGE_KEYS.proCheckedAt, String(Date.now()));
     try { window.dispatchEvent(new Event(ACCESS_EVENT)); } catch { /* ignore */ }
   },
   clearSession: () => {
-    localStorage.removeItem(STORAGE_KEYS.token);
-    localStorage.removeItem(STORAGE_KEYS.email);
-    localStorage.removeItem(STORAGE_KEYS.pro);
-    localStorage.removeItem(STORAGE_KEYS.life);
-    localStorage.removeItem(STORAGE_KEYS.proCheckedAt);
+    safeLocalStorage.removeItem(STORAGE_KEYS.token);
+    safeLocalStorage.removeItem(STORAGE_KEYS.email);
+    safeLocalStorage.removeItem(STORAGE_KEYS.pro);
+    safeLocalStorage.removeItem(STORAGE_KEYS.life);
+    safeLocalStorage.removeItem(STORAGE_KEYS.proCheckedAt);
     try { window.dispatchEvent(new Event(ACCESS_EVENT)); } catch { /* ignore */ }
   },
   guestId: ensureGuestId,
@@ -192,14 +219,19 @@ export const api = {
   // locations
   listLocations: async () => {
     const res = await client.get('/locations');
-    setCachedLocations(res?.data || []);
-    return res;
+    const raw = Array.isArray(res?.data) ? res.data : [];
+    const rows = raw.map(normalizeLocationRow).filter(Boolean);
+    setCachedLocations(rows);
+    return { ...res, data: rows };
   },
   createLocation: async (loc) => {
     const res = await client.post('/locations', loc);
-    const next = res?.data ? [...getCachedLocations().filter((r) => r?.id !== res.data.id), res.data] : getCachedLocations();
-    setCachedLocations(next);
-    return res;
+    const normalized = res?.data ? normalizeLocationRow(res.data) : null;
+    if (normalized) {
+      const next = [...getCachedLocations().filter((r) => r?.id !== normalized.id), normalized];
+      setCachedLocations(next);
+    }
+    return normalized ? { ...res, data: normalized } : res;
   },
   updateLocation: (id, patch) => client.patch(`/locations/${id}`, patch),
   deleteLocation: async (id) => {

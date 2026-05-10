@@ -13,9 +13,10 @@ import {
   isValidPubkey,
 } from "../../lib/solana";
 import { listContacts } from "../../lib/api";
+import { reportSolanaToolActivity } from "../../lib/rrApi";
 import {
   formatSol, formatTokenAmount, lamportsToSol, parseDecimalToBaseUnits,
-  shortAddr, solToLamports,
+  shortAddr,
 } from "../../lib/format";
 
 const STEPS = ["amount", "review", "sent"];
@@ -86,8 +87,6 @@ export default function Send() {
     return parseDecimalToBaseUnits(amount, asset.decimals);
   }, [amount, asset.decimals]);
 
-  const lamportsAmount = asset.kind === "sol" && baseUnits != null ? Number(baseUnits) : 0;
-
   // Validation
   const validTo = isValidPubkey(to.trim());
   const amountInvalidShape = amount.length > 0 && baseUnits == null;
@@ -147,6 +146,21 @@ export default function Send() {
       }
       const sig = await signAndSend(tx);
       setSignature(String(sig));
+      void reportSolanaToolActivity({
+        action: asset.kind === "sol" ? "send_sol" : "send_spl",
+        wallet: pubkey,
+        signature: String(sig),
+        cluster: network,
+        summary:
+          asset.kind === "sol"
+            ? `Sent SOL → ${shortAddr(to.trim(), 4, 4)}`
+            : `Sent SPL → ${shortAddr(to.trim(), 4, 4)}`,
+        metadata: {
+          to: to.trim(),
+          amount: String(amount),
+          mint: asset.kind === "spl" ? asset.mint : undefined,
+        },
+      });
       setStep("sent");
       toast.success("Transaction sent");
     } catch (e) {

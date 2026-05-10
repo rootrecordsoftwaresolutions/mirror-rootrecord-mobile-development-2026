@@ -22,6 +22,7 @@ export const REGISTERED_APPS = [
     playStoreUrl: "https://groups.google.com/u/1/g/rootrecordtesting",
     // Public distribution page used by the Weather Manager README.
     distUrl: "https://github.com/RootRecord/rootrecord-weather-manager-mobile",
+    webOpenUrl: "https://weather.rootrecord.info/",
   },
   {
     id: "business_manager",
@@ -34,6 +35,20 @@ export const REGISTERED_APPS = [
     androidPackage: "com.rootrecord.businessmanager",
     appId: "rootrecord_business_manager_android",
     playStoreUrl: "https://groups.google.com/u/1/g/rootrecordtesting",
+    webOpenUrl: "https://business.rootrecord.info/",
+  },
+  {
+    id: "kilauea_alerts",
+    name: "Kīlauea Alerts",
+    tagline: "Hawaiian volcanoes dashboard, alerts, and guest web access.",
+    status: "available",
+    brand: "#EA580C",
+    iconKey: "Flame",
+    androidScheme: "kilauea-alerts://alerts",
+    androidPackage: "com.rootrecord.kilauea",
+    appId: "rootrecord_kilauea_alerts_android",
+    playStoreUrl: "https://groups.google.com/u/1/g/rootrecordtesting",
+    webOpenUrl: "https://kilauea.rootrecord.info/",
   },
   {
     id: "account_hub",

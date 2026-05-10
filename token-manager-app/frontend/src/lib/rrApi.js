@@ -1,7 +1,18 @@
 import axios from "axios";
+import { Capacitor } from "@capacitor/core";
 
-// RootRecord primary production API for shared auth/session across apps.
-const DEFAULT_BACKEND = "https://api.rootrecord.info";
+// Native Android (Capacitor): shared primary. Product web (Pages): token API shard.
+const PRIMARY_BACKEND = "https://api.rootrecord.info";
+const SHARD_WEB_BACKEND = "https://rootrecord-api-token.rootrecord.workers.dev";
+
+function defaultBackend() {
+  try {
+    if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform?.()) return PRIMARY_BACKEND;
+  } catch {
+    /* no-op */
+  }
+  return SHARD_WEB_BACKEND;
+}
 
 function normalizeBackendBase(raw) {
   let base = String(raw ?? "")
@@ -32,7 +43,7 @@ function isLocalDevBackend(base) {
 const fromEnv = normalizeBackendBase(process.env.REACT_APP_RR_BACKEND_URL);
 const useProdFallback =
   process.env.NODE_ENV === "production" && fromEnv && isLocalDevBackend(fromEnv);
-const BACKEND = useProdFallback ? DEFAULT_BACKEND : fromEnv || DEFAULT_BACKEND;
+const BACKEND = useProdFallback ? PRIMARY_BACKEND : fromEnv || defaultBackend();
 const API_BASE = `${BACKEND}/api`;
 
 export const rrApi = axios.create({ baseURL: API_BASE, timeout: 25000 });

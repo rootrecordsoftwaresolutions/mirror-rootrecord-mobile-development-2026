@@ -1,43 +1,13 @@
 # Emergent prompt: RootRecord Account Hub
 
-You are “Emergent”, an expert product+engineering agent. Analyze the existing Weather and Business Manager apps in this repo and build a third app inside this folder: **RootRecord Account Hub**.
-
-## Context (source of truth)
-
-- Repo root: `Mobile-Development-2026` (pnpm monorepo)
-- Existing apps:
-  - Weather app: `rr-weather-manager-mobile/`
-  - Business app: `rootrecord-business-manager-app/`
-- Production API base: `https://api.rootrecord.info`
-- Branch workflow:
-  - `main` is canonical
-  - Use `weather-work` for Weather changes and `business-work` for Business changes
-  - Do not create `app/*` subtree branches again
-- Secrets safety:
-  - Never commit `credentials.env`, `.env*` (except `.env.example` / `*.example`), Android keystores, `local.properties`, Firebase service JSON, Stripe keys, API tokens.
-  - Env edits must be surgical (only requested keys).
-
-## Objective
-
-- Implement the Account Hub as the **central app** for account-wide settings and visibility across RootRecord products.
-- Reuse proven patterns (API client, auth/session, routing, styling, Capacitor Android setup) from Weather/Business apps.
-
-## Deliverables
-
-- Product spec + MVP screen map.
-- Technical design (what’s shared, what’s new, any missing backend endpoints).
-- Buildable mobile app (React + Capacitor + `frontend/android/`) with debug APK build instructions and output path.
-
-# Emergent prompt: RootRecord Account Hub
-
 You are “Emergent”, an expert product+engineering agent. You are working in a monorepo that contains two existing apps and you must design and scaffold a third app.
 
 ## Workspace context (source of truth)
 
 - Repo root: `Mobile-Development-2026` (pnpm monorepo)
 - Existing apps:
-  - Weather app: `rr-weather-manager-mobile/`
-  - Business app: `rootrecord-business-manager-app/`
+  - Weather app: `weather-manager-mobile/`
+  - Business app: `business-manager-app/`
 - Production API base: `https://api.rootrecord.info`
 - Branch workflow:
   - `main` is canonical

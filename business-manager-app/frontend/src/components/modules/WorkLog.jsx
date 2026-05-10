@@ -4,6 +4,7 @@ import { ScreenHeader, PageContainer, Empty, Spinner, Toast, useToast } from "..
 import { fmtDateShort, durationHours, fmtHours } from "../../lib/format";
 import { Search, Trash2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { TimeEntryEditorSheet } from "./TimeEntryEditorSheet";
 
 export default function WorkLog() {
   const { guest } = useAuth();
@@ -15,6 +16,7 @@ export default function WorkLog() {
   const [entries, setEntries] = useState([]);
   const [cats, setCats] = useState({});
   const [loading, setLoading] = useState(false);
+  const [editEntry, setEditEntry] = useState(null);
   const { toast, show, clear } = useToast();
 
   async function load() {
@@ -31,8 +33,9 @@ export default function WorkLog() {
         }),
         api.get("/categories"),
       ]);
-      setEntries(rows);
-      setCats(Object.fromEntries(catRows.map((c) => [c.id, c])));
+      setEntries(Array.isArray(rows) ? rows : []);
+      const catList = Array.isArray(catRows) ? catRows : [];
+      setCats(Object.fromEntries(catList.map((c) => [c.id, c])));
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }
@@ -93,7 +96,11 @@ export default function WorkLog() {
                   const cat = cats[e.category_id];
                   return (
                     <div key={e.id} data-testid={`worklog-row-${e.id}`} className="row">
-                      <div className="min-w-0 pr-3 flex-1">
+                      <button
+                        type="button"
+                        className="min-w-0 pr-3 flex-1 text-left border-0 bg-transparent cursor-pointer p-0 hover:opacity-90"
+                        onClick={() => setEditEntry(e)}
+                      >
                         <p className="text-sm text-ink-primary truncate">
                           {cat && <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: cat.color }} />}
                           {e.description || cat?.name || "Time entry"}
@@ -101,8 +108,13 @@ export default function WorkLog() {
                         <p className="text-xs text-ink-tertiary mt-0.5">
                           {fmtDateShort(e.start_utc)} → {fmtDateShort(e.end_utc)} · {fmtHours(durationHours(e.start_utc, e.end_utc))}
                         </p>
-                      </div>
-                      <button data-testid={`worklog-delete-${e.id}`} onClick={() => del(e.id)} className="btn btn-ghost p-2 text-ink-tertiary hover:text-expense">
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`worklog-delete-${e.id}`}
+                        onClick={() => del(e.id)}
+                        className="btn btn-ghost p-2 text-ink-tertiary hover:text-expense"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -114,6 +126,17 @@ export default function WorkLog() {
         )}
       </PageContainer>
       <Toast message={toast.message} kind={toast.kind} onDone={clear} />
+      <TimeEntryEditorSheet
+        open={Boolean(editEntry)}
+        entry={editEntry}
+        categories={Object.values(cats)}
+        onClose={() => setEditEntry(null)}
+        onSaved={(data) => {
+          setEntries((prev) => prev.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+        }}
+        showToast={show}
+        onTaxonomyRefresh={load}
+      />
     </>
   );
 }

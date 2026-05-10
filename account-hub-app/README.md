@@ -63,6 +63,8 @@ Output:
 frontend/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+**Release APK + AAB (workspace standard):** staged under **`builds/account-hub/`** via **`scripts/build-all-release-to-builds.ps1`** from the **Mobile** monorepo root. See **`docs/RELEASE-BUILD-OUTPUTS.md`**.
+
 **Android Studio:** `pnpm run android:open` from `frontend/`, then Run.
 
 Scripts in `frontend/package.json`: `cap:sync`, `android:open`,

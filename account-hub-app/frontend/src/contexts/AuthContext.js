@@ -141,7 +141,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthCtx.Provider value={{ user, login, register, logout, refresh, refreshEntitlement }}>
+    <AuthCtx.Provider
+      value={{ user, login, register, logout, refresh, refreshEntitlement }}
+    >
       {children}
     </AuthCtx.Provider>
   );

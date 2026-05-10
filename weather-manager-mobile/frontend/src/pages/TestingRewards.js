@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Gift, ExternalLink, RefreshCw } from 'lucide-react';
 import { api, formatApiError, isBackendConfigured, session, RR_APP_ID } from '../lib/api';
+import { NATIVE_APP_VERSION } from '../lib/nativeAppVersion';
 import {
   formatRewardBalance,
   parseDisplayBalanceFromSummary,
@@ -294,7 +295,9 @@ export default function TestingRewards() {
         </>
       )}
 
-      <p className="text-center text-[10px] font-mono text-accent/60 mt-8">Root Record Weather Manager Mobile · v1.0.12</p>
+      <p className="text-center text-[10px] font-mono text-accent/60 mt-8">
+        Root Record Weather Manager Mobile · v{NATIVE_APP_VERSION}
+      </p>
     </div>
   );
 }

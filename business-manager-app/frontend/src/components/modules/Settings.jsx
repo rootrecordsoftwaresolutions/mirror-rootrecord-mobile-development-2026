@@ -1,9 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../../lib/api";
-import { ScreenHeader, PageContainer, Section, Field, Toast, useToast } from "../ui/Shell";
+import { api, formatApiError, RR_APP_ID, wipeBusinessCloudData } from "../../lib/api";
+import { ScreenHeader, PageContainer, Section, Field, Toast, useToast, Spinner } from "../ui/Shell";
+import {
+  loadProgramSettingsLocal,
+  saveProgramSettingsLocal,
+  clearProgramSettingsLocal,
+  PROGRAM_SETTINGS_DEFAULT,
+  toProgramSettingsPatch,
+} from "../../lib/programSettings";
 import { useAuth } from "../../contexts/AuthContext";
-import { Sparkles, LogOut, LogIn } from "lucide-react";
+import { Sparkles, LogOut, LogIn, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+const BETA_REWARDS_INFO_URL =
+  String(process.env.REACT_APP_BETA_REWARDS_INFO_URL || "https://rootrecord.info/beta-tester-rewards.html").trim() ||
+  "https://rootrecord.info/beta-tester-rewards.html";
+const SOLANA_ACCOUNT_URL = "https://solana.rootrecord.info/account";
 
 export function AccountSettings() {
   const { user, guest, logout, exitGuest, refreshEntitlement } = useAuth();
@@ -11,7 +23,50 @@ export function AccountSettings() {
   const { toast, show, clear } = useToast();
   const [busy, setBusy] = useState(false);
   const [ent, setEnt] = useState(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("");
+  const [wipePhrase, setWipePhrase] = useState("");
+  const [wipeBusy, setWipeBusy] = useState(false);
   const isPro = user?.plan === "pro";
+  /** Match case-insensitively — mobile keyboards often emit "Wipe" / "wipe". */
+  const wipeOk = wipePhrase.trim().toUpperCase() === "WIPE";
+
+  async function verifyCloudSync() {
+    if (!user) return;
+    setSyncBusy(true);
+    setSyncStatus("");
+    try {
+      const { data } = await api.get("/health");
+      const h = data && typeof data === "object" ? data : {};
+      const t = new Date().toLocaleString();
+      const coreOk = h.status === "ok" && h.db === "ok";
+      const workspaceReady = h.bm_owned_row === "ok";
+      const ok = coreOk && workspaceReady;
+      setSyncStatus(ok ? `Last check: ${t} · OK` : `Last check: ${t} · ${!coreOk ? "Unreachable" : "Retry later"}`);
+      if (ok) show("OK", "success");
+    } catch (e) {
+      show(formatApiError(e), "error");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  async function wipeAllBusinessData() {
+    if (!wipeOk || wipeBusy) return;
+    setWipeBusy(true);
+    try {
+      if (user) {
+        await wipeBusinessCloudData();
+      }
+      clearProgramSettingsLocal();
+      show("Cleared. Reloading…", "success");
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (e) {
+      show(formatApiError(e), "error");
+    } finally {
+      setWipeBusy(false);
+    }
+  }
 
   async function refresh() {
     setBusy(true);
@@ -64,9 +119,6 @@ export function AccountSettings() {
                 <button data-testid="account-logout-btn" onClick={async () => { await logout(); nav("/auth"); }} className="btn btn-secondary w-full">
                   <LogOut size={16} /> Log out
                 </button>
-                <p className="text-[11px] text-ink-tertiary mt-3 text-center">
-                  Same RootRecord account as Weather and the website — sign-in and rewards run on api.rootrecord.info.
-                </p>
               </>
             ) : (
               <>
@@ -79,12 +131,41 @@ export function AccountSettings() {
           </div>
         </Section>
 
+        <Section title="Beta tester rewards">
+          <div className="p-4 space-y-3 text-sm text-ink-secondary">
+            <p>
+              Usage rewards accrue in the background while you are signed in (same program as Weather Manager). The in-app
+              Rewards tab was removed; view your balance and the full program on{" "}
+              <span className="text-ink-primary font-medium">rootrecord.info</span>. A <strong>daily check-in</strong> runs
+              automatically once per UTC day when you open the app.
+            </p>
+            <a
+              href={BETA_REWARDS_INFO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary w-full inline-flex items-center justify-center gap-2"
+              data-testid="account-beta-rewards-link"
+            >
+              Beta tester rewards <ExternalLink size={16} className="opacity-80" aria-hidden />
+            </a>
+            <a
+              href={SOLANA_ACCOUNT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-ghost w-full text-sm inline-flex items-center justify-center gap-2 border border-white/10"
+              data-testid="account-solana-withdraw-link"
+            >
+              Withdraw RRTT — Solana account <ExternalLink size={14} className="opacity-80" aria-hidden />
+            </a>
+          </div>
+        </Section>
+
         <Section title="Plan overview">
           <div className="p-4 grid grid-cols-2 gap-3">
             <div className={`card p-3 border-2 ${!isPro ? "border-brand/40" : "border-transparent"}`}>
               <p className="font-heading font-bold text-base">Free</p>
               <ul className="text-xs text-ink-secondary mt-2 space-y-1">
-                <li>• Local-first data</li>
+                <li>• Cloud backup when signed in</li>
                 <li>• One business</li>
                 <li>• Basic reports</li>
               </ul>
@@ -93,8 +174,8 @@ export function AccountSettings() {
               <p className="font-heading font-bold text-base flex items-center gap-1">Pro <Sparkles size={12} className="text-brand" /></p>
               <ul className="text-xs text-ink-secondary mt-2 space-y-1">
                 <li>• Full Reports + PDF</li>
-                <li>• Multi-business</li>
-                <li>• Cloud sync (planned)</li>
+                <li>• Multiple businesses in the cloud</li>
+                <li>• Higher limits and roadmap extras</li>
               </ul>
             </div>
           </div>
@@ -109,17 +190,71 @@ export function AccountSettings() {
               >
                 <Sparkles size={16} /> Upgrade on rootrecord.info
               </a>
-              <p className="text-[10px] text-ink-tertiary text-center mt-2">After paying, tap "Refresh entitlement" above.</p>
             </div>
           )}
         </Section>
 
         <Section title="Cloud sync">
-          <div className="p-4 text-sm text-ink-secondary">
-            <p>You're authenticated with the same RootRecord licence Worker the Windows desktop app uses, so your email/password works on both. Cloud data sync (push/pull of business records) is the next milestone — wire-up will reuse your existing token.</p>
-            <button disabled className="btn btn-secondary w-full mt-3 opacity-60">Sync with cloud (planned)</button>
+          <div className="p-4 text-sm text-ink-secondary space-y-3">
+            {user ? (
+              <>
+                <p>Signed-in data syncs to your RootRecord account.</p>
+                <button
+                  type="button"
+                  data-testid="cloud-verify-btn"
+                  onClick={verifyCloudSync}
+                  disabled={syncBusy}
+                  className="btn btn-primary w-full"
+                >
+                  {syncBusy ? "Checking…" : "Verify cloud connection"}
+                </button>
+                {syncStatus ? (
+                  <p data-testid="cloud-sync-status" className="text-xs text-ink-tertiary text-center">
+                    {syncStatus}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <p>Sign in to sync across devices.</p>
+                <button data-testid="cloud-signin-btn" onClick={() => { exitGuest(); nav("/auth"); }} className="btn btn-primary w-full">
+                  <LogIn size={16} /> Sign in for cloud data
+                </button>
+              </>
+            )}
           </div>
         </Section>
+
+        {(user || guest) && (
+          <Section title="Reset Business Manager data">
+            <div className="p-4 space-y-3 rounded-xl border border-[rgba(244,63,94,0.28)] bg-[rgba(244,63,94,0.06)]">
+              <p className="text-sm text-ink-secondary">
+                {user ? "Deletes Business Manager data on RootRecord and preferences on this device." : "Clears preferences on this device."}
+              </p>
+              <Field label='Type WIPE to confirm'>
+                <input
+                  data-testid="wipe-confirm-input"
+                  className="input font-mono"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  value={wipePhrase}
+                  onChange={(e) => setWipePhrase(e.target.value)}
+                  placeholder="WIPE"
+                />
+              </Field>
+              <button
+                type="button"
+                data-testid="wipe-all-btn"
+                disabled={!wipeOk || wipeBusy}
+                onClick={wipeAllBusinessData}
+                className="btn w-full border border-[rgba(244,63,94,0.45)] bg-[rgba(244,63,94,0.12)] text-[#FB7185] font-semibold hover:bg-[rgba(244,63,94,0.2)]"
+              >
+                {wipeBusy ? "Working…" : user ? "Wipe cloud and this device" : "Wipe data on this device"}
+              </button>
+            </div>
+          </Section>
+        )}
       </PageContainer>
       <Toast message={toast.message} kind={toast.kind} onDone={clear} />
     </>
@@ -207,35 +342,66 @@ export function BusinessSettings() {
 }
 
 export function ProgramSettings() {
-  const { guest } = useAuth();
+  const { guest, user } = useAuth();
   const [s, setS] = useState(null);
+  const [loading, setLoading] = useState(true);
   const { toast, show, clear } = useToast();
-  async function load() {
-    if (guest) return;
-    const { data } = await api.get("/settings");
-    setS(data);
-  }
-  useEffect(() => { load(); }, [guest]); // eslint-disable-line
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      if (guest) {
+        if (!cancelled) {
+          setS(loadProgramSettingsLocal());
+          setLoading(false);
+        }
+        return;
+      }
+      try {
+        const { data } = await api.get("/settings");
+        const merged = { ...PROGRAM_SETTINGS_DEFAULT, ...(data && typeof data === "object" ? data : {}) };
+        if (!cancelled) setS(merged);
+      } catch {
+        if (!cancelled) setS(loadProgramSettingsLocal());
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [guest, user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function save() {
     if (!s) return;
-    await api.patch("/settings", {
-      currency_default: s.currency_default,
-      theme: s.theme,
-      prompt_interval_sec: parseInt(s.prompt_interval_sec, 10) || 0,
-      prompt_first_delay_sec: parseInt(s.prompt_first_delay_sec, 10) || 0,
-      prompt_response_timeout_sec: parseInt(s.prompt_response_timeout_sec, 10) || 0,
-      default_hourly_cents: parseInt(s.default_hourly_cents, 10) || 0,
-      show_money_in_dashboard: !!s.show_money_in_dashboard,
-      help_bubbles_enabled: !!s.help_bubbles_enabled,
-      business_timezone: s.business_timezone || "system",
+    const patch = toProgramSettingsPatch({
+      ...s,
+      prompt_interval_sec: parseInt(String(s.prompt_interval_sec), 10) || 0,
+      prompt_first_delay_sec: parseInt(String(s.prompt_first_delay_sec), 10) || 0,
+      prompt_response_timeout_sec: parseInt(String(s.prompt_response_timeout_sec), 10) || 0,
+      default_hourly_cents: parseInt(String(s.default_hourly_cents), 10) || 0,
     });
+    const next = saveProgramSettingsLocal({ ...s, ...patch });
+    setS(next);
+    if (!guest) {
+      try {
+        await api.patch("/settings", patch);
+      } catch {
+        show("Saved on this device. Could not sync to the server — try again when online.", "error");
+        return;
+      }
+    }
     show("Settings saved", "success");
   }
+
   return (
     <>
       <ScreenHeader title="Program Settings" subtitle="Currency, theme, prompts, timezone" />
       <PageContainer>
-        {guest || !s ? <p className="text-sm text-ink-tertiary">Sign in to edit settings.</p> : (
+        {loading ? (
+          <Spinner />
+        ) : (
           <Section>
             <div className="p-4">
               <Field label="Default currency">
@@ -277,6 +443,15 @@ export function ProgramSettings() {
                 <input data-testid="settings-help-tips" type="checkbox" checked={!!s.help_bubbles_enabled} onChange={(e)=>setS({...s,help_bubbles_enabled:e.target.checked})} className="w-5 h-5 accent-[#2B8A8F]" />
               </label>
               <button data-testid="settings-save-btn" onClick={save} className="btn btn-primary w-full mt-2">Save settings</button>
+              {guest ? (
+                <p className="text-xs text-ink-tertiary mt-3 text-center">
+                  Preferences are stored on this device. Sign in to sync them with your RootRecord account.
+                </p>
+              ) : (
+                <p className="text-xs text-ink-tertiary mt-3 text-center">
+                  Also kept on this device if you go offline or use guest mode later.
+                </p>
+              )}
             </div>
           </Section>
         )}
@@ -294,7 +469,7 @@ export function About() {
         <Section>
           <div className="p-4 space-y-3 text-sm">
             <p className="font-heading font-bold text-base text-ink-primary">RootRecord Business Manager</p>
-            <p className="text-ink-secondary">Mobile build · v0.1.0 (mirrors desktop v2.0.x)</p>
+            <p className="text-ink-secondary">Mobile build · v1.0.2</p>
             <p className="text-ink-secondary">Local-first time, money, clients, inventory, scheduling, and reports — designed to run wherever your business does.</p>
           </div>
         </Section>
@@ -309,8 +484,18 @@ export function About() {
         </Section>
         <Section title="Plans">
           <div className="p-4 text-sm text-ink-secondary space-y-2">
-            <p><b className="text-ink-primary">Pro</b> unlocks Reports workspace, multi-business, and (planned) cloud backup + AI-assisted reports.</p>
+            <p><b className="text-ink-primary">Pro</b> unlocks Reports workspace, multiple businesses in the cloud, and roadmap extras such as AI-assisted reports.</p>
             <p><b className="text-ink-primary">Free</b> keeps your data on your device. Account Settings shows your current plan.</p>
+          </div>
+        </Section>
+        <Section title="Custom app development">
+          <div className="p-4 text-sm text-ink-secondary space-y-2">
+            <p>Need something built for your workflow, team, or customers? Tell us purpose, platforms, scope, and timeline.</p>
+            <p>
+              <a className="text-brand font-semibold" href="https://rootrecord.info/app-build-request" target="_blank" rel="noreferrer">
+                rootrecord.info/app-build-request
+              </a>
+            </p>
           </div>
         </Section>
         <Section title="Where to get help">
@@ -334,8 +519,21 @@ export function Feedback() {
     e.preventDefault();
     if (!msg.trim()) return show("Tell us something first", "error");
     if (guest) return show("Sign in to send feedback", "error");
-    await api.post("/feedback", { type, message: msg, reply_email: reply || null, include_diagnostics: diag });
-    setMsg(""); setReply(""); show("Feedback sent — thank you", "success");
+    try {
+      await api.post("/feedback", {
+        type,
+        message: msg,
+        reply_email: reply || null,
+        include_diagnostics: diag,
+        app_id: RR_APP_ID,
+      });
+    } catch (err) {
+      show(formatApiError(err), "error");
+      return;
+    }
+    setMsg("");
+    setReply("");
+    show("Feedback sent — thank you", "success");
   }
   return (
     <>

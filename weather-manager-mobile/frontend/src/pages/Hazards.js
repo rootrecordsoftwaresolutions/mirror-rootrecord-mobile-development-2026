@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Activity, Waves, Wind, Flame, RefreshCw, Loader2, ArrowUpRight } from 'lucide-react';
 import { api, getCachedLocations } from '../lib/api';
+import { safeLocalStorage } from '../lib/storage';
 import { fmtMileOrKm, formatTime, timeAgo, clsx } from '../lib/format';
 
 const TAB_KEYS = [
@@ -32,12 +33,12 @@ export default function Hazards() {
     (async () => {
       try {
         const { data } = await api.listLocations();
-        const id = localStorage.getItem('rrwm.activeLocationId');
+        const id = safeLocalStorage.getItem('rrwm.activeLocationId');
         const loc = (data || []).find((l) => l.id === id) || (data || [])[0] || null;
         setActiveLoc(loc);
       } catch (e) {
         const cached = getCachedLocations();
-        const id = localStorage.getItem('rrwm.activeLocationId');
+        const id = safeLocalStorage.getItem('rrwm.activeLocationId');
         const loc = cached.find((l) => l.id === id) || cached[0] || null;
         setActiveLoc(loc);
         setErr(loc ? 'Using saved location from this device.' : String(e?.message || e));
@@ -153,7 +154,7 @@ export default function Hazards() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm truncate">{e.place || 'Unknown region'}</div>
                     <div className="text-[10px] font-mono text-accent/70">
-                      {e.depth_km != null && `${e.depth_km.toFixed(0)} km · `}
+                      {e.depth_km != null && Number.isFinite(Number(e.depth_km)) && `${Number(e.depth_km).toFixed(0)} km · `}
                       {e.distance_miles != null && `${fmtMileOrKm(e.distance_miles)} away · `}
                       {timeAgo(e.time)}
                     </div>
@@ -195,7 +196,14 @@ export default function Hazards() {
                 >
                   <div className="text-[10px] uppercase tracking-widest text-sev-moderate font-mono">{(e.categories||[]).join(' · ') || 'Severe storm'}</div>
                   <div className="text-sm">{e.title}</div>
-                  <div className="text-[10px] font-mono text-accent/70 mt-1">{formatTime(e.date)}{e.lat!=null && ` · ${e.lat.toFixed(1)},${e.lon.toFixed(1)}`}</div>
+                  <div className="text-[10px] font-mono text-accent/70 mt-1">
+                    {formatTime(e.date)}
+                    {e.lat != null &&
+                      e.lon != null &&
+                      Number.isFinite(Number(e.lat)) &&
+                      Number.isFinite(Number(e.lon)) &&
+                      ` · ${Number(e.lat).toFixed(1)},${Number(e.lon).toFixed(1)}`}
+                  </div>
                 </a>
               ))}
             </div>
@@ -217,7 +225,14 @@ export default function Hazards() {
                 >
                   <div className="text-[10px] uppercase tracking-widest text-sev-severe font-mono flex items-center gap-1"><Flame className="w-3 h-3"/> Wildfire</div>
                   <div className="text-sm">{e.title}</div>
-                  <div className="text-[10px] font-mono text-accent/70 mt-1">{formatTime(e.date)}{e.lat!=null && ` · ${e.lat.toFixed(1)},${e.lon.toFixed(1)}`}</div>
+                  <div className="text-[10px] font-mono text-accent/70 mt-1">
+                    {formatTime(e.date)}
+                    {e.lat != null &&
+                      e.lon != null &&
+                      Number.isFinite(Number(e.lat)) &&
+                      Number.isFinite(Number(e.lon)) &&
+                      ` · ${Number(e.lat).toFixed(1)},${Number(e.lon).toFixed(1)}`}
+                  </div>
                 </a>
               ))}
             </div>

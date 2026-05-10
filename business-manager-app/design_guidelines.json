@@ -109,7 +109,7 @@
     "drawer_slide": "Framer motion slide up from 100% to 0% with spring stiffness 300 damping 30"
   },
   "instructions_to_main_agent": [
-    "Create a mobile-first PWA. All pages must be constrained to typical mobile widths on desktop (max-w-md mx-auto) or elegantly expand into a tablet view.",
+    "Create a mobile-first PWA. All pages must be constrained to typical mobile widths on wide viewports (max-w-md mx-auto) or elegantly expand into a tablet view.",
     "Ensure lucide-react is installed for all icons. Use filled icons for active nav states and outline for inactive.",
     "Add data-testid attributes to ALL interactive elements (buttons, inputs, tabs, list items) to facilitate testing.",
     "For 'Finance & Clients', implement a horizontal scrollable segmented control or a sticky sub-header with tabs, since it has 8 sub-modules.",

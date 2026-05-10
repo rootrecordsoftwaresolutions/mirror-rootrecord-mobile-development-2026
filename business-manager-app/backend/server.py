@@ -1,8 +1,7 @@
-"""RootRecord Business Manager — Mobile API.
+"""RootRecord Business Manager — Mobile API (optional FastAPI + Mongo dev stack).
 
-Local-first parity with the desktop Electron + SQLite app: time, money, clients,
-inventory, scheduling. Auth proxies to the RootRecord licence Worker so the same
-email/password used by the Windows desktop app works on mobile.
+Business routes mirror the Worker contract for local testing. Auth proxies to the
+RootRecord licence Worker (same account as rootrecord.info / other RootRecord apps).
 """
 
 from dotenv import load_dotenv
@@ -11,6 +10,7 @@ load_dotenv()
 import os
 import time
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 
@@ -26,7 +26,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
-# Licence Worker (same contract as Windows desktop licenseService.js). Override with ROOTRECORD_LICENSE_API or LICENSE_API_BASE_URL.
+# Licence Worker (RootRecord /v1 auth contract). Override with ROOTRECORD_LICENSE_API or LICENSE_API_BASE_URL.
 _license_raw = (
     os.environ.get("ROOTRECORD_LICENSE_API", "").strip()
     or os.environ.get("LICENSE_API_BASE_URL", "").strip()
@@ -76,13 +76,38 @@ def now_iso() -> str:
 def new_id() -> str:
     return uuid.uuid4().hex
 
+
+def _norm_qa_label(label: object) -> str:
+    return str(label or "").strip().lower()
+
+
+def _norm_category_key(name: object, kind: object) -> str:
+    n = str(name or "").strip().lower()
+    k = str(kind or "time").strip().lower() or "time"
+    return f"{n}\t{k}"
+
+
+def _norm_project_name(name: object) -> str:
+    return str(name or "").strip().lower()
+
+
+BM_NAME_DEDUPE_V = 1
+
+
+def _dedupe_sort_key(row: dict) -> tuple:
+    return (
+        int(row.get("sort_order") or 0),
+        str(row.get("created_at") or row.get("updated_at") or ""),
+        str(row.get("id") or ""),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Licence Worker proxy (RootRecord licence service)
 # ---------------------------------------------------------------------------
 # Default base: https://rootrecord-license.rootrecord.workers.dev (override with
 # ROOTRECORD_LICENSE_API or LICENSE_API_BASE_URL). Endpoints: /v1/auth/login,
-# /v1/auth/signup, /v1/auth/logout, /v1/me, /v1/entitlement — same contract as
-# the Windows desktop licenseService.js.
+# /v1/auth/signup, /v1/auth/logout, /v1/me, /v1/entitlement.
 
 async def _worker_post(path: str, body: dict, bearer: Optional[str] = None) -> tuple[int, dict]:
     if not LICENSE_API_BASE_URL:
@@ -212,6 +237,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Not authenticated")
     info = await _validate_token(token)
     user = await _ensure_user_seeded(info["id"], info["email"])
+    await _maybe_dedupe_named_entities(info["id"])
     user["_token"] = token  # available for endpoints that need to forward the bearer
     return user
 
@@ -251,15 +277,14 @@ def _device_id(value: Optional[str]) -> str:
 
 @api.post("/auth/login", response_model=AuthOut)
 async def login(body: LoginIn):
-    """Proxies to the RootRecord licence Worker so the same email/password used by the
-    Windows desktop installer works on mobile."""
+    """Proxies to the RootRecord licence Worker (`/v1/auth/login`)."""
     email = body.email.lower().strip()
     device_id = _device_id(body.device_id)
     status, body_resp = await _worker_post("/v1/auth/login", {
         "email": email, "password": body.password, "device_id": device_id,
     })
     if status >= 400:
-        # Map worker error strings into the messages the desktop app uses.
+        # Map worker errors to HTTP responses for the mobile client.
         msg = _worker_error(status, body_resp)
         passthrough = {400, 401, 403, 409, 422, 429}
         raise HTTPException(status_code=status if status in passthrough else 502, detail=msg)
@@ -356,8 +381,7 @@ class EntitlementIn(BaseModel):
 
 @api.post("/auth/entitlement")
 async def refresh_entitlement(body: EntitlementIn, current=Depends(get_current_user)):
-    """Force a fresh entitlement check against the licence Worker.
-    Mirrors desktop's `licensePrepare({forceRefresh: true})` from licenseService.js."""
+    """Force a fresh entitlement check against the licence Worker (`/v1/entitlement`)."""
     token = current.get("_token", "")
     device_id = _device_id(body.device_id)
     status, body_resp = await _worker_post("/v1/entitlement", {
@@ -433,24 +457,152 @@ async def _delete(coll: str, user_id: str, item_id: str) -> None:
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail=f"{coll} not found")
 
+
+async def _maybe_dedupe_named_entities(user_id: str) -> None:
+    """One-time (per name_dedupe_v) cleanup: case-insensitive duplicate names for categories, projects, quick actions."""
+    if not await db.settings.find_one({"user_id": user_id}):
+        await _seed_default_business(user_id)
+    s = await db.settings.find_one({"user_id": user_id}, {"_id": 0, "name_dedupe_v": 1})
+    if s and int(s.get("name_dedupe_v") or 0) >= BM_NAME_DEDUPE_V:
+        return
+
+    cats = await db.categories.find({"user_id": user_id}, {"_id": 0}).to_list(length=5000)
+    projs = await db.projects.find({"user_id": user_id}, {"_id": 0}).to_list(length=5000)
+    qas = await db.quick_actions.find({"user_id": user_id}, {"_id": 0}).to_list(length=5000)
+
+    def _has_cat_dupes() -> bool:
+        seen: set[str] = set()
+        for c in cats:
+            k = _norm_category_key(c.get("name"), c.get("kind"))
+            if not k.split("\t", 1)[0]:
+                continue
+            if k in seen:
+                return True
+            seen.add(k)
+        return False
+
+    def _has_proj_dupes() -> bool:
+        seen: set[str] = set()
+        for p in projs:
+            n = _norm_project_name(p.get("name"))
+            if not n:
+                continue
+            if n in seen:
+                return True
+            seen.add(n)
+        return False
+
+    def _has_qa_dupes() -> bool:
+        seen: set[str] = set()
+        for q in qas:
+            lb = _norm_qa_label(q.get("label"))
+            if not lb:
+                continue
+            if lb in seen:
+                return True
+            seen.add(lb)
+        return False
+
+    if not _has_cat_dupes() and not _has_proj_dupes() and not _has_qa_dupes():
+        await db.settings.update_one(
+            {"user_id": user_id},
+            {"$set": {"name_dedupe_v": BM_NAME_DEDUPE_V, "updated_at": now_iso()}},
+        )
+        return
+
+    cat_by: dict[str, list] = defaultdict(list)
+    for c in cats:
+        k = _norm_category_key(c.get("name"), c.get("kind"))
+        if not k.split("\t", 1)[0]:
+            continue
+        cat_by[k].append(c)
+    cat_remap: dict[str, str] = {}
+    for group in cat_by.values():
+        if len(group) < 2:
+            continue
+        winner = min(group, key=_dedupe_sort_key)
+        wid = winner["id"]
+        for r in group:
+            rid = r["id"]
+            if rid != wid:
+                cat_remap[str(rid)] = str(wid)
+
+    proj_by: dict[str, list] = defaultdict(list)
+    for p in projs:
+        n = _norm_project_name(p.get("name"))
+        if not n:
+            continue
+        proj_by[n].append(p)
+    proj_remap: dict[str, str] = {}
+    for group in proj_by.values():
+        if len(group) < 2:
+            continue
+        winner = min(group, key=_dedupe_sort_key)
+        wid = winner["id"]
+        for r in group:
+            rid = r["id"]
+            if rid != wid:
+                proj_remap[str(rid)] = str(wid)
+
+    qa_by: dict[str, list] = defaultdict(list)
+    for q in qas:
+        lb = _norm_qa_label(q.get("label"))
+        if not lb:
+            continue
+        qa_by[lb].append(q)
+    qa_remap: dict[str, str] = {}
+    for group in qa_by.values():
+        if len(group) < 2:
+            continue
+        winner = min(group, key=_dedupe_sort_key)
+        wid = winner["id"]
+        for r in group:
+            rid = r["id"]
+            if rid != wid:
+                qa_remap[str(rid)] = str(wid)
+
+    for old_id, new_id in cat_remap.items():
+        await db.time_entries.update_many(
+            {"user_id": user_id, "category_id": old_id}, {"$set": {"category_id": new_id}}
+        )
+        await db.quick_actions.update_many(
+            {"user_id": user_id, "category_id": old_id}, {"$set": {"category_id": new_id}}
+        )
+        await db.active_sessions.update_many(
+            {"user_id": user_id, "category_id": old_id}, {"$set": {"category_id": new_id}}
+        )
+    for old_id, new_id in proj_remap.items():
+        await db.time_entries.update_many(
+            {"user_id": user_id, "project_id": old_id}, {"$set": {"project_id": new_id}}
+        )
+        await db.quick_actions.update_many(
+            {"user_id": user_id, "project_id": old_id}, {"$set": {"project_id": new_id}}
+        )
+        await db.active_sessions.update_many(
+            {"user_id": user_id, "project_id": old_id}, {"$set": {"project_id": new_id}}
+        )
+    for old_id, new_id in qa_remap.items():
+        await db.active_sessions.update_many(
+            {"user_id": user_id, "started_via_quick_action_id": old_id},
+            {"$set": {"started_via_quick_action_id": new_id}},
+        )
+
+    if cat_remap:
+        await db.categories.delete_many({"user_id": user_id, "id": {"$in": list(cat_remap.keys())}})
+    if proj_remap:
+        await db.projects.delete_many({"user_id": user_id, "id": {"$in": list(proj_remap.keys())}})
+    if qa_remap:
+        await db.quick_actions.delete_many({"user_id": user_id, "id": {"$in": list(qa_remap.keys())}})
+
+    await db.settings.update_one(
+        {"user_id": user_id},
+        {"$set": {"name_dedupe_v": BM_NAME_DEDUPE_V, "updated_at": now_iso()}},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Categories & Projects (used everywhere)
 # ---------------------------------------------------------------------------
-
-DEFAULT_CATEGORIES = [
-    {"name": "Coding", "color": "#2B8A8F", "kind": "time"},
-    {"name": "Development", "color": "#06B6D4", "kind": "time"},
-    {"name": "Marketing", "color": "#F59E0B", "kind": "time"},
-    {"name": "Research", "color": "#6366F1", "kind": "time"},
-    {"name": "Evaluation", "color": "#8B5CF6", "kind": "time"},
-    {"name": "Design", "color": "#EC4899", "kind": "time"},
-    {"name": "Testing", "color": "#A855F7", "kind": "time"},
-    {"name": "Admin", "color": "#F43F5E", "kind": "time"},
-    {"name": "Analytics", "color": "#10B981", "kind": "time"},
-    {"name": "Operations", "color": "#EAB308", "kind": "time"},
-    {"name": "Meetings", "color": "#14B8A6", "kind": "time"},
-    {"name": "Break", "color": "#687777", "kind": "time"},
-]
 
 async def _seed_default_business(user_id: str):
     existing = await db.businesses.find_one({"user_id": user_id})
@@ -462,13 +614,6 @@ async def _seed_default_business(user_id: str):
             "invoice_notes": "", "is_default": True,
             "created_at": now_iso(), "updated_at": now_iso(),
         })
-    if await db.categories.count_documents({"user_id": user_id}) == 0:
-        await db.categories.insert_many([
-            {**c, "id": new_id(), "user_id": user_id, "billable": 1,
-             "default_hourly_cents": None, "sort_order": i, "archived": 0,
-             "created_at": now_iso(), "updated_at": now_iso()}
-            for i, c in enumerate(DEFAULT_CATEGORIES)
-        ])
     if await db.settings.find_one({"user_id": user_id}) is None:
         await db.settings.insert_one({
             "user_id": user_id,
@@ -484,29 +629,6 @@ async def _seed_default_business(user_id: str):
             "active_business_id": None,
             "updated_at": now_iso(),
         })
-    # Seed default quick actions, mapping by category name.
-    if await db.quick_actions.count_documents({"user_id": user_id}) == 0:
-        cats_by_name: dict = {}
-        async for c in db.categories.find({"user_id": user_id}, {"_id": 0, "id": 1, "name": 1}):
-            cats_by_name[c["name"]] = c["id"]
-        SEEDS = [
-            {"label": "Code", "category_name": "Coding", "default_description": "Development work", "icon": "Code"},
-            {"label": "Meeting", "category_name": "Meetings", "default_description": "Team / client meeting", "icon": "Users"},
-            {"label": "Review", "category_name": "Coding", "default_description": "Code review and feedback", "icon": "FileSearch"},
-        ]
-        await db.quick_actions.insert_many([
-            {
-                "id": new_id(), "user_id": user_id,
-                "label": s["label"],
-                "category_id": cats_by_name.get(s["category_name"]),
-                "default_description": s["default_description"],
-                "icon": s["icon"],
-                "sort_order": i,
-                "created_at": now_iso(), "updated_at": now_iso(),
-            }
-            for i, s in enumerate(SEEDS)
-        ])
-
 class CategoryIn(BaseModel):
     name: str
     color: Optional[str] = "#2B8A8F"
@@ -523,11 +645,35 @@ async def list_categories(current=Depends(get_current_user)):
 
 @api.post("/categories")
 async def create_category(body: CategoryIn, current=Depends(get_current_user)):
-    return await _create("categories", current["id"], body.model_dump())
+    uid = current["id"]
+    key = _norm_category_key(body.name, body.kind)
+    if not key.split("\t", 1)[0]:
+        raise HTTPException(status_code=400, detail="Name is required.")
+    async for d in db.categories.find({"user_id": uid}, {"_id": 0, "name": 1, "kind": 1}):
+        if _norm_category_key(d.get("name"), d.get("kind")) == key:
+            raise HTTPException(
+                status_code=409, detail="You already have a category with that name and type."
+            )
+    return await _create("categories", uid, body.model_dump())
 
 @api.patch("/categories/{cid}")
 async def update_category(cid: str, body: CategoryIn, current=Depends(get_current_user)):
-    return await _update("categories", current["id"], cid, body.model_dump())
+    uid = current["id"]
+    prev = await db.categories.find_one({"id": cid, "user_id": uid}, {"_id": 0})
+    if not prev:
+        raise HTTPException(status_code=404, detail="categories not found")
+    merged = {**prev, **body.model_dump()}
+    key = _norm_category_key(merged.get("name"), merged.get("kind"))
+    if not key.split("\t", 1)[0]:
+        raise HTTPException(status_code=400, detail="Name is required.")
+    async for d in db.categories.find({"user_id": uid}, {"_id": 0, "id": 1, "name": 1, "kind": 1}):
+        if d.get("id") == cid:
+            continue
+        if _norm_category_key(d.get("name"), d.get("kind")) == key:
+            raise HTTPException(
+                status_code=409, detail="You already have a category with that name and type."
+            )
+    return await _update("categories", uid, cid, body.model_dump())
 
 @api.delete("/categories/{cid}")
 async def delete_category(cid: str, current=Depends(get_current_user)):
@@ -548,7 +694,14 @@ async def list_projects(current=Depends(get_current_user)):
 
 @api.post("/projects")
 async def create_project(body: ProjectIn, current=Depends(get_current_user)):
-    return await _create("projects", current["id"], body.model_dump())
+    uid = current["id"]
+    nm = _norm_project_name(body.name)
+    if not nm:
+        raise HTTPException(status_code=400, detail="Name is required.")
+    async for d in db.projects.find({"user_id": uid}, {"_id": 0, "name": 1}):
+        if _norm_project_name(d.get("name")) == nm:
+            raise HTTPException(status_code=409, detail="You already have a project with that name.")
+    return await _create("projects", uid, body.model_dump())
 
 @api.delete("/projects/{pid}")
 async def delete_project(pid: str, current=Depends(get_current_user)):
@@ -556,7 +709,7 @@ async def delete_project(pid: str, current=Depends(get_current_user)):
     return {"ok": True}
 
 # ---------------------------------------------------------------------------
-# Quick Actions — one-tap clock-in shortcuts (parity with desktop FACTORY_QUICK_ACTION_SEEDS)
+# Quick Actions — one-tap clock-in shortcuts
 # ---------------------------------------------------------------------------
 
 class QuickActionIn(BaseModel):
@@ -574,11 +727,31 @@ async def list_quick_actions(current=Depends(get_current_user)):
 
 @api.post("/quick-actions")
 async def create_quick_action(body: QuickActionIn, current=Depends(get_current_user)):
-    return await _create("quick_actions", current["id"], body.model_dump())
+    uid = current["id"]
+    lb = _norm_qa_label(body.label)
+    if not lb:
+        raise HTTPException(status_code=400, detail="Label is required.")
+    async for d in db.quick_actions.find({"user_id": uid}, {"_id": 0, "label": 1}):
+        if _norm_qa_label(d.get("label")) == lb:
+            raise HTTPException(status_code=409, detail="You already have a quick action with that name.")
+    return await _create("quick_actions", uid, body.model_dump())
 
 @api.patch("/quick-actions/{qid}")
 async def update_quick_action(qid: str, body: QuickActionIn, current=Depends(get_current_user)):
-    return await _update("quick_actions", current["id"], qid, body.model_dump())
+    uid = current["id"]
+    prev = await db.quick_actions.find_one({"id": qid, "user_id": uid}, {"_id": 0})
+    if not prev:
+        raise HTTPException(status_code=404, detail="Quick action not found")
+    merged = {**prev, **body.model_dump()}
+    lb = _norm_qa_label(merged.get("label"))
+    if not lb:
+        raise HTTPException(status_code=400, detail="Label is required.")
+    async for d in db.quick_actions.find({"user_id": uid}, {"_id": 0, "id": 1, "label": 1}):
+        if d.get("id") == qid:
+            continue
+        if _norm_qa_label(d.get("label")) == lb:
+            raise HTTPException(status_code=409, detail="You already have a quick action with that name.")
+    return await _update("quick_actions", uid, qid, body.model_dump())
 
 @api.delete("/quick-actions/{qid}")
 async def delete_quick_action(qid: str, current=Depends(get_current_user)):

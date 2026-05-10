@@ -9,19 +9,19 @@ trail requested in the problem statement.
 fd . /app -d 3          # tree overview
 view_bulk /app/package.json /app/pnpm-workspace.yaml \
           /app/.npmrc /app/.gitignore
-view_bulk /app/rr-weather-manager-mobile/frontend/package.json \
-          /app/rr-weather-manager-mobile/frontend/capacitor.config.json \
-          /app/rr-weather-manager-mobile/frontend/src/App.js \
-          /app/rr-weather-manager-mobile/frontend/src/lib/api.js \
-          /app/rr-weather-manager-mobile/frontend/src/pages/AuthGate.js
-view_bulk /app/rootrecord-business-manager-app/frontend/package.json \
-          /app/rootrecord-business-manager-app/frontend/capacitor.config.json \
-          /app/rootrecord-business-manager-app/frontend/src/App.js \
-          /app/rootrecord-business-manager-app/frontend/src/lib/api.js \
-          /app/rootrecord-business-manager-app/frontend/src/contexts/AuthContext.js \
-          /app/rootrecord-business-manager-app/frontend/src/components/ui/Shell.jsx \
-          /app/rootrecord-business-manager-app/frontend/src/components/modules/AuthScreen.jsx
-ls /app/rootrecord-business-manager-app/frontend/android/app/src/main/
+view_bulk /app/weather-manager-mobile/frontend/package.json \
+          /app/weather-manager-mobile/frontend/capacitor.config.json \
+          /app/weather-manager-mobile/frontend/src/App.js \
+          /app/weather-manager-mobile/frontend/src/lib/api.js \
+          /app/weather-manager-mobile/frontend/src/pages/AuthGate.js
+view_bulk /app/business-manager-app/frontend/package.json \
+          /app/business-manager-app/frontend/capacitor.config.json \
+          /app/business-manager-app/frontend/src/App.js \
+          /app/business-manager-app/frontend/src/lib/api.js \
+          /app/business-manager-app/frontend/src/contexts/AuthContext.js \
+          /app/business-manager-app/frontend/src/components/ui/Shell.jsx \
+          /app/business-manager-app/frontend/src/components/modules/AuthScreen.jsx
+ls /app/business-manager-app/frontend/android/app/src/main/
 ```
 
 **Findings (full compatibility report in `docs/COMPATIBILITY-REPORT.md`):**
@@ -40,7 +40,7 @@ ls /app/rootrecord-business-manager-app/frontend/android/app/src/main/
 ## 2. Scaffold creation
 
 ```
-mkdir -p /app/rootrecord-account-hub-app/{frontend/{src/{components/{ui,modules},contexts,lib,pages},public,scripts},backend,memory,docs}
+mkdir -p /app/account-hub-app/{frontend/{src/{components/{ui,modules},contexts,lib,pages},public,scripts},backend,memory,docs}
 ```
 
 Then created 17 source files via parallel `mcp_create_file` calls:
@@ -75,8 +75,8 @@ Copied Business Manager's `android/` tree (identical Capacitor 6 layout
 with `minSdk 22`, `compileSdk 34`, Gradle 8.2.1, JDK 17) and renamed:
 
 ```
-cp -r /app/rootrecord-business-manager-app/frontend/android \
-      /app/rootrecord-account-hub-app/frontend/android
+cp -r /app/business-manager-app/frontend/android \
+      /app/account-hub-app/frontend/android
 mkdir -p .../java/com/rootrecord/accounthub
 rm -rf   .../java/com/rootrecord/businessmanager
 ```
@@ -98,7 +98,7 @@ splash drawables, mipmap launchers, `AndroidManifest.xml`. Conditional
 ## 4. Workspace wiring
 
 ```
-search_replace pnpm-workspace.yaml          # add rootrecord-account-hub-app/frontend
+search_replace pnpm-workspace.yaml          # add account-hub-app/frontend
 search_replace package.json (workspace root) # add hub:start / hub:build / hub:android:assemble
 ```
 
@@ -118,7 +118,7 @@ Result: `Done in 24.8s · +1452 packages · Scope: all 4 workspace projects`.
 Built the Hub:
 
 ```bash
-cd /app/rootrecord-account-hub-app/frontend && CI=true pnpm run build
+cd /app/account-hub-app/frontend && CI=true pnpm run build
 ```
 
 Result: `Compiled successfully · 79.77 kB gzip (JS) · 4.33 kB gzip (CSS)`.
@@ -126,7 +126,7 @@ Result: `Compiled successfully · 79.77 kB gzip (JS) · 4.33 kB gzip (CSS)`.
 Ran Capacitor sync:
 
 ```bash
-cd /app/rootrecord-account-hub-app/frontend && pnpm exec cap sync android
+cd /app/account-hub-app/frontend && pnpm exec cap sync android
 ```
 
 Result: `Sync finished in 0.067s · 1 Capacitor plugin detected (@capacitor/app)`.
@@ -134,8 +134,8 @@ Result: `Sync finished in 0.067s · 1 Capacitor plugin detected (@capacitor/app)
 Regression check — both existing apps still build cleanly:
 
 ```bash
-cd /app/rootrecord-business-manager-app/frontend && CI=true pnpm run build   # OK
-cd /app/rr-weather-manager-mobile/frontend    && CI=true pnpm run build      # OK
+cd /app/business-manager-app/frontend && CI=true pnpm run build   # OK
+cd /app/weather-manager-mobile/frontend    && CI=true pnpm run build      # OK
 ```
 
 No existing-app source was modified.

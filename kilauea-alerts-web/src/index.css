@@ -1,0 +1,31 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1210;
+  --panel: #171c19;
+  --text: #e8f0eb;
+  --muted: #8fa399;
+  --accent: #c45c2a;
+  --border: #2a3530;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: #7ec8e3;
+}
+
+code,
+pre {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.82rem;
+}

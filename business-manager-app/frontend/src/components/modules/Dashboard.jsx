@@ -1,9 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { api } from "../../lib/api";
 import { ScreenHeader, PageContainer, Section, Spinner, Empty, Toast, useToast } from "../ui/Shell";
-import { fmtMoney, fmtHours, MONTHS_SHORT, startOfMonthISO, endOfMonthISO, startOfYearISO, isoNow, durationHours } from "../../lib/format";
-import { TrendingUp, AlertCircle, Code, Users, FileSearch, Zap, Square, Play } from "lucide-react";
+import { fmtMoney, fmtHours, MONTHS_SHORT, isoNow, durationHours } from "../../lib/format";
+import {
+  computeDashboardRange,
+  dashboardTimeZoneCaption,
+  liveSessionHoursInRange,
+  formatWeekRangeLabel,
+} from "../../lib/dashboardRanges";
+import { loadProgramSettingsLocal } from "../../lib/programSettings";
+import { rechartsTooltipProps } from "../../lib/rechartsTooltipProps";
+import { TrendingUp, AlertCircle, Code, Users, FileSearch, Zap, Square, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -16,19 +24,43 @@ export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [scope, setScope] = useState("year"); // year | month
+  const [scope, setScope] = useState("year"); // year | month | week | today
   const [monthIdx, setMonthIdx] = useState(new Date().getMonth());
+  const [weekOffset, setWeekOffset] = useState(0);
   const year = new Date().getFullYear();
+  const [businessTimezone, setBusinessTimezone] = useState(() => loadProgramSettingsLocal().business_timezone || "system");
 
   // Quick actions state
   const [quickActions, setQuickActions] = useState([]);
   const [session, setSession] = useState(null);
   const [tickN, setTickN] = useState(0); // re-render every 30s while clocked in
+  const needsSlidingRangeEnd = scope === "today" || scope === "year";
 
-  const [start, end] = useMemo(() => {
-    if (scope === "year") return [startOfYearISO(), isoNow()];
-    return [startOfMonthISO(year, monthIdx), endOfMonthISO(year, monthIdx)];
-  }, [scope, monthIdx, year]);
+  const [start, end] = computeDashboardRange({
+    scope,
+    year,
+    monthIdx,
+    weekOffset,
+    businessTimezone,
+  });
+
+  useEffect(() => {
+    if (guest || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get("/settings");
+        if (!cancelled && data && typeof data === "object" && typeof data.business_timezone === "string") {
+          setBusinessTimezone(data.business_timezone);
+        }
+      } catch {
+        /* keep local default */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [guest, user]);
 
   async function loadSummary() {
     if (guest || !user) {
@@ -38,7 +70,16 @@ export default function Dashboard() {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/dashboard/summary", { params: { start, end } });
+      const [s, e] = computeDashboardRange({
+        scope,
+        year,
+        monthIdx,
+        weekOffset,
+        businessTimezone,
+      });
+      const params = { start: s };
+      if (e != null && e !== "") params.end = e;
+      const { data } = await api.get("/dashboard/summary", { params });
       setSummary(data);
     } catch (e) {
       setError(e?.message || "Failed to load");
@@ -54,12 +95,30 @@ export default function Dashboard() {
         api.get("/quick-actions"),
         api.get("/time/session"),
       ]);
-      setQuickActions(qa || []);
+      setQuickActions(Array.isArray(qa) ? qa : []);
       setSession(s?.active ? s : null);
     } catch { /* ignore */ }
   }
 
-  useEffect(() => { loadSummary(); }, [start, end, guest, user]); // eslint-disable-line
+  useEffect(() => {
+    loadSummary();
+  }, [start, end, guest, user, scope, year, monthIdx, weekOffset, businessTimezone]); // eslint-disable-line
+
+  useEffect(() => {
+    if (guest || !user || !needsSlidingRangeEnd) return undefined;
+    const id = setInterval(() => {
+      loadSummary();
+    }, 30_000);
+    const onVis = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") loadSummary();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(id);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [guest, user, needsSlidingRangeEnd, scope, year, monthIdx, weekOffset, businessTimezone]); // eslint-disable-line
+
   useEffect(() => { loadQuickAndSession(); }, [guest, user]); // eslint-disable-line
 
   // Live timer: tick every 30s while clocked in
@@ -99,7 +158,7 @@ export default function Dashboard() {
             <AlertCircle size={20} className="text-[#FB7185] flex-shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-semibold text-[#FB7185] mb-0.5">Guest mode</p>
-              <p className="text-ink-secondary">Sign in to save data, unlock Pro reports, and (when shipped) cloud sync.</p>
+              <p className="text-ink-secondary">Sign in to save business data to your RootRecord account and unlock Pro reports.</p>
             </div>
           </div>
         )}
@@ -134,7 +193,7 @@ export default function Dashboard() {
                 return (
                   <button
                     key={qa.id}
-                    data-testid={`quick-action-${qa.label.toLowerCase()}`}
+                    data-testid={`quick-action-${qa.id}`}
                     onClick={() => runQuick(qa)}
                     className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-bg-elevated border border-strong hover:border-brand/40 active:scale-[0.97] transition min-h-[80px]"
                   >
@@ -159,16 +218,21 @@ export default function Dashboard() {
         )}
 
         {/* scope */}
-        <div className="card p-1 flex mb-3" data-testid="dashboard-scope">
+        <div className="card p-1 grid grid-cols-2 sm:grid-cols-4 gap-1 mb-3" data-testid="dashboard-scope">
           {[
             { id: "year", label: "Yearly" },
             { id: "month", label: "Monthly" },
+            { id: "week", label: "Weekly" },
+            { id: "today", label: "Today" },
           ].map((t) => (
             <button
               key={t.id}
               data-testid={`scope-${t.id}`}
-              onClick={() => setScope(t.id)}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
+              onClick={() => {
+                setScope(t.id);
+                if (t.id === "week") setWeekOffset(0);
+              }}
+              className={`py-2 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
                 scope === t.id ? "bg-bg-elevated text-ink-primary" : "text-ink-tertiary"
               }`}
             >
@@ -193,6 +257,38 @@ export default function Dashboard() {
           </div>
         )}
 
+        {scope === "week" && (
+          <div className="flex items-center justify-between gap-2 mb-4 px-1">
+            <button
+              type="button"
+              data-testid="week-prev"
+              className="btn btn-ghost p-2 min-h-[44px]"
+              aria-label="Previous week"
+              onClick={() => setWeekOffset((w) => w - 1)}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <p className="text-xs text-ink-secondary text-center flex-1 font-medium" data-testid="week-range-label">
+              {formatWeekRangeLabel(start, end, businessTimezone)}
+            </p>
+            <button
+              type="button"
+              data-testid="week-next"
+              className="btn btn-ghost p-2 min-h-[44px]"
+              aria-label="Next week"
+              onClick={() => setWeekOffset((w) => w + 1)}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
+
+        {scope === "today" && (
+          <p className="text-xs text-ink-tertiary mb-4 px-1 text-center" data-testid="today-caption">
+            Hours and money from midnight in <strong className="text-ink-secondary">{dashboardTimeZoneCaption(businessTimezone)}</strong> through now.
+          </p>
+        )}
+
         {loading ? <Spinner /> : error ? (
           <Empty title="Couldn't load dashboard">{error}</Empty>
         ) : guest || !summary ? (
@@ -202,7 +298,11 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <Kpi testid="kpi-hours" label="Hours" value={fmtHours(summary.hours)} />
+              <Kpi
+                testid="kpi-hours"
+                label="Hours"
+                value={fmtHours((summary.hours || 0) + liveSessionHoursInRange(session, start, end ?? undefined))}
+              />
               <Kpi testid="kpi-income" label="Income" value={fmtMoney(summary.income_cents)} accent="income" />
               <Kpi testid="kpi-expenses" label="Expenses" value={fmtMoney(summary.expense_cents)} accent="expense" />
               <Kpi testid="kpi-net" label="Net" value={fmtMoney(summary.net_cents)} accent={summary.net_cents >= 0 ? "income" : "expense"} bold />
@@ -230,7 +330,7 @@ export default function Dashboard() {
                               <Cell key={i} fill={b.color} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ background: "rgba(20,28,28,0.95)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 8 }} />
+                          <Tooltip {...rechartsTooltipProps} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -239,7 +339,7 @@ export default function Dashboard() {
                         <BarChart data={summary.breakdown} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
                           <XAxis dataKey="name" tick={{ fill: "#687777", fontSize: 10 }} angle={-30} textAnchor="end" height={40} interval={0} />
                           <YAxis tick={{ fill: "#687777", fontSize: 10 }} />
-                          <Tooltip />
+                          <Tooltip {...rechartsTooltipProps} />
                           <Bar dataKey="hours" radius={[6, 6, 0, 0]}>
                             {summary.breakdown.map((b, i) => (
                               <Cell key={i} fill={b.color} />

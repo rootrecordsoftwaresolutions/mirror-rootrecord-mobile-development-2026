@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-## [1.0.8] — 2026-04-29
+## [1.0.11] — 2026-04-29
 
-- **Release 8:** Android `versionCode` **8** and user-facing **1.0.8** (aligned numbering). Signed AAB/APK from workspace-aligned web assets and Capacitor Android.
+- **Release 11:** Android `versionCode` **11** and user-facing **1.0.11** (aligned numbering). Signed AAB/APK from workspace-aligned web assets and Capacitor Android.
 
 ## [1.0.2] — 2026-04-26
 

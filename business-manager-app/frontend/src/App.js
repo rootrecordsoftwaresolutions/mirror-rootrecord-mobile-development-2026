@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { getToken, earnHeartbeat, RR_APP_ID } from "./lib/api";
+import { getToken, earnHeartbeat, earnCheckin, isBackendConfigured, RR_APP_ID } from "./lib/api";
 import BottomNav from "./components/ui/BottomNav";
 import AuthScreen from "./components/modules/AuthScreen";
 import Dashboard from "./components/modules/Dashboard";
@@ -14,7 +14,6 @@ import Reports from "./components/modules/Reports";
 import Stock from "./components/modules/Stock";
 import Categories from "./components/modules/Categories";
 import { AccountSettings, BusinessSettings, ProgramSettings, About, Feedback } from "./components/modules/Settings";
-import TestingRewards from "./components/modules/TestingRewards";
 import DeveloperMessages from "./components/modules/DeveloperMessages";
 
 /** Same earn heartbeat pattern as Weather Manager — shared `rr_earn_*` balance on primary Worker. */
@@ -28,6 +27,42 @@ function EarnHeartbeat() {
     const id = setInterval(tick, 25_000);
     return () => clearInterval(id);
   }, [loc.pathname]);
+  return null;
+}
+
+function utcYmd() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Once per UTC day while signed in (not guest): silent earn check-in, same as Weather Manager. */
+function DailyEarnCheckin() {
+  const { user, guest } = useAuth();
+  useEffect(() => {
+    if (user === undefined || guest || !user) return undefined;
+    if (!isBackendConfigured()) return undefined;
+    const KEY = "rrbm.dailyCheckin.lastAttemptYmd";
+    let cancelled = false;
+    const attempt = async () => {
+      if (cancelled) return;
+      const today = utcYmd();
+      if (localStorage.getItem(KEY) === today) return;
+      localStorage.setItem(KEY, today);
+      try {
+        await earnCheckin({ app_id: RR_APP_ID });
+      } catch {
+        /* retry next open / foreground */
+      }
+    };
+    attempt();
+    const onVis = () => {
+      if (document.visibilityState === "visible") attempt();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [user, guest]);
   return null;
 }
 
@@ -64,7 +99,7 @@ function AppRoutes() {
       <Route path="/program" element={<Gate><ProgramSettings /></Gate>} />
       <Route path="/about" element={<Gate><About /></Gate>} />
       <Route path="/feedback" element={<Gate><Feedback /></Gate>} />
-      <Route path="/testing-rewards" element={<Gate><TestingRewards /></Gate>} />
+      <Route path="/testing-rewards" element={<Gate><Navigate to="/account" replace /></Gate>} />
       <Route path="/developer-messages" element={<Gate><DeveloperMessages /></Gate>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -76,6 +111,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <EarnHeartbeat />
+        <DailyEarnCheckin />
         <div className="min-h-[100dvh]">
           <AppRoutes />
           <BottomNav />

@@ -10,12 +10,13 @@ import {
   Cloud,
   Briefcase,
   ShieldCheck,
+  Flame,
   ChevronRight,
   Coins,
   ArrowUpRight,
 } from "lucide-react";
 
-const ICONS = { Cloud, Briefcase, ShieldCheck };
+const ICONS = { Cloud, Briefcase, ShieldCheck, Flame };
 
 export default function Home() {
   const { user } = useAuth();
@@ -127,7 +128,7 @@ export default function Home() {
           }
         >
           <div className="divide-y divide-white/5">
-            {REGISTERED_APPS.slice(0, 3).map((app) => {
+            {REGISTERED_APPS.map((app) => {
               const Icon = ICONS[app.iconKey] || ShieldCheck;
               const isCurrent = app.status === "current";
               return (

@@ -17,7 +17,7 @@
   "critical_code_review_comments": [
     "server.py is 933 lines — consider splitting into routers/ by domain (auth, time, money, clients, stock, schedule, settings) once the feature set stabilises; not a functional issue but hurts maintainability.",
     "`@app.on_event('startup')` is deprecated in modern FastAPI; prefer lifespan context manager for future-proofing.",
-    "No rate limiting or brute-force lockout on /api/auth/login — acceptable for a preview but flag for production parity with the desktop app's trust model.",
+    "No rate limiting or brute-force lockout on /api/auth/login — acceptable for a preview but flag before hardening production auth.",
     "JWT TTL is 7 days with no refresh-token rotation; acceptable for mobile convenience per spec but document the tradeoff.",
     "Password policy is min_length=6 only — consider adding complexity requirements or zxcvbn scoring in production.",
     "/api/auth/upgrade-pro is an unauthenticated-upgrade demo by design (noted as MOCKED in review request); main agent should gate behind a server-side licence check before going to production.",

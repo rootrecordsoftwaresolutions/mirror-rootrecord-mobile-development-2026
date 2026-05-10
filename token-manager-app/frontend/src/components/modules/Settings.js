@@ -7,6 +7,12 @@ import { useWallet } from "../../contexts/WalletContext";
 import { LogOut, BookUser, Network, ChevronRight, ShieldCheck, Coins, RotateCw, Wallet, Megaphone, Gift, MessageSquare } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { earnGetSummary, formatRrApiError } from "../../lib/rrApi";
+import {
+  formatRewardBalance,
+  parseDisplayBalanceFromSummary,
+  parseRewardBreakdownFromSummary,
+  SOLANA_TOOLS_ACCOUNT_URL,
+} from "../../lib/rewardsFormat";
 import { NATIVE_APP_VERSION } from "../../lib/nativeAppVersion";
 
 const NETS = [
@@ -43,7 +49,8 @@ export default function Settings() {
     loadEarn();
   }, [user, loadEarn]);
 
-  const earnValue = formatEarnValue(earn);
+  const rewardBr = user ? parseRewardBreakdownFromSummary(earn) : null;
+  const rewardHeadline = user ? formatRewardBalance(parseDisplayBalanceFromSummary(earn)) : null;
 
   return (
     <div className="page-shell" data-testid="settings-screen">
@@ -136,10 +143,31 @@ export default function Settings() {
               ) : earnErr ? (
                 <span className="text-red-200">{earnErr}</span>
               ) : (
-                <>
-                  <span className="font-semibold text-ink-primary">{earnValue}</span>
-                  <span className="text-ink-tertiary"> · shared across RootRecord apps</span>
-                </>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-ink-tertiary">Pending rewards</span>
+                    <span className="font-semibold text-ink-primary tabular-nums">{formatRewardBalance(rewardBr?.pending ?? null)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-ink-tertiary">Wallet balance</span>
+                    <span className="font-semibold text-ink-primary tabular-nums">{formatRewardBalance(rewardBr?.wallet ?? null)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-ink-tertiary">Lifetime rewards</span>
+                    <span className="font-semibold text-ink-primary tabular-nums">{formatRewardBalance(rewardBr?.lifetime ?? null)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2 border-t border-white/10 pt-1.5 mt-1">
+                    <span className="text-ink-tertiary">Total (apps)</span>
+                    <span className="font-semibold text-ink-primary tabular-nums">{rewardHeadline}</span>
+                  </div>
+                  <p className="text-[10px] text-ink-tertiary leading-relaxed pt-0.5">
+                    Headline total includes pending accruals. Withdrawable on-chain:{" "}
+                    <a href={SOLANA_TOOLS_ACCOUNT_URL} className="text-phos underline" target="_blank" rel="noopener noreferrer">
+                      Solana Tools → Account
+                    </a>
+                    . Shared across RootRecord apps.
+                  </p>
+                </div>
               )
             ) : (
               "Sign in to track your shared rewards balance."
@@ -185,7 +213,7 @@ export default function Settings() {
             <Gift size={18} className="text-phos" />
             <div className="text-left">
               <div className="font-semibold text-ink-primary">Testing rewards</div>
-              <div className="text-[11px] text-ink-tertiary mt-0.5">Beta tester balance — same pool as Weather &amp; Business Manager.</div>
+              <div className="text-[11px] text-ink-tertiary mt-0.5">Pending / wallet / lifetime — full withdraw on Solana Tools.</div>
             </div>
           </div>
           <ChevronRight size={16} className="text-ink-tertiary" />
@@ -272,19 +300,4 @@ export default function Settings() {
       </div>
     </div>
   );
-}
-
-/** Best-effort formatter — `/api/earn/summary` shape varies slightly per Worker. */
-function formatEarnValue(earn) {
-  if (!earn || typeof earn !== "object") return "—";
-  const num =
-    earn.balance_display ??
-    earn.balance ??
-    earn.total ??
-    earn.points ??
-    earn.balance_points ??
-    earn.credits ??
-    null;
-  if (num === null || num === undefined) return "Active";
-  return `${Number(num).toLocaleString()} pts`;
 }

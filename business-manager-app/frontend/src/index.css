@@ -146,10 +146,18 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   width: 100%;
 }
 
-/* Dashboard pie tooltip override */
+/*
+ * Recharts default tooltip sets each row's color to the series/slice color (entry.color).
+ * Dark category colors on a dark tooltip are unreadable — force high-contrast copy.
+ */
 .recharts-default-tooltip {
-  background: rgba(20,28,28,0.95) !important;
-  border: 1px solid rgba(255,255,255,0.10) !important;
+  background: rgba(20, 28, 28, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 8px !important;
-  color: var(--ink-primary) !important;
+  color: #f8fafa !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.recharts-default-tooltip .recharts-tooltip-label,
+.recharts-default-tooltip .recharts-tooltip-item {
+  color: #f8fafa !important;
 }

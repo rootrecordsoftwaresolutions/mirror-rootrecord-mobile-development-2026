@@ -55,7 +55,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="page-shell px-5 pt-14 pb-10 min-h-[100dvh] flex flex-col">
+    <div className="page-shell px-5 pb-10 min-h-[100dvh] flex flex-col pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]">
       <Dialog.Root open={Boolean(outdated)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-[2px]" />
@@ -179,7 +179,8 @@ export default function AuthScreen() {
       </form>
 
       <p className="text-xs text-ink-tertiary text-center mt-auto pt-6">
-        Same RootRecord sign-in and beta rewards as Weather Manager.
+        Same RootRecord sign-in as Weather Manager. Beta tester rewards: see <strong>Account Settings</strong> after sign-in
+        or <a href="https://rootrecord.info/beta-tester-rewards.html" target="_blank" rel="noopener noreferrer" className="text-brand underline-offset-2 hover:underline">rootrecord.info</a>.
       </p>
     </div>
   );

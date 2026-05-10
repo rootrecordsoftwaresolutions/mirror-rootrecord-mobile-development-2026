@@ -5,6 +5,8 @@
 Thumbs.db
 # Too large for GitHub; build locally or pull from Releases
 **/RootRecordBusinessManager.exe
+rootrecord-business-manager-mobile-*-release.apk
+rootrecord-business-manager-mobile-*-release.aab
 
 # Environment and credential files
 .env

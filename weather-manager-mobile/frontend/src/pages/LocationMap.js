@@ -200,7 +200,11 @@ export default function LocationMap() {
       >
         <div className="text-[10px] font-mono uppercase tracking-widest text-accent/70 mb-1">Selected coordinates</div>
         <div className="font-mono text-sm mb-3" data-testid="location-coords">
-          {coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : '— Tap map or use GPS below —'}
+          {coords &&
+          Number.isFinite(Number(coords.lat)) &&
+          Number.isFinite(Number(coords.lng))
+            ? `${Number(coords.lat).toFixed(4)}, ${Number(coords.lng).toFixed(4)}`
+            : '— Tap map or use GPS below —'}
         </div>
         <button
           type="button"

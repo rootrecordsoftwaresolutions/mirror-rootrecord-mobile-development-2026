@@ -1,11 +1,21 @@
 import axios from "axios";
+import { Capacitor } from "@capacitor/core";
 
 /**
- * Account Hub — shares the RootRecord primary API with Weather Manager and
- * Business Manager at api.rootrecord.info. Auth, earn balance, and preferences
- * are the same endpoints; the Hub adds its own read calls on `/api/auth/me`.
+ * Account Hub — same `/api/*` routes as other RootRecord apps. Native Android uses the
+ * shared primary hostname; product web (Pages) uses the account API shard.
  */
-const DEFAULT_BACKEND = "https://api.rootrecord.info";
+const PRIMARY_BACKEND = "https://api.rootrecord.info";
+const SHARD_WEB_BACKEND = "https://rootrecord-api-account.rootrecord.workers.dev";
+
+function defaultBackend() {
+  try {
+    if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform?.()) return PRIMARY_BACKEND;
+  } catch {
+    /* no-op */
+  }
+  return SHARD_WEB_BACKEND;
+}
 
 function normalizeBackendBase(raw) {
   let base = String(raw ?? "")
@@ -36,7 +46,7 @@ function isLocalDevBackend(base) {
 const fromEnv = normalizeBackendBase(process.env.REACT_APP_BACKEND_URL);
 const useProdFallback =
   process.env.NODE_ENV === "production" && fromEnv && isLocalDevBackend(fromEnv);
-const BACKEND = useProdFallback ? DEFAULT_BACKEND : fromEnv || DEFAULT_BACKEND;
+const BACKEND = useProdFallback ? PRIMARY_BACKEND : fromEnv || defaultBackend();
 const API_BASE = `${BACKEND}/api`;
 
 /** Ecosystem id for per-app earn/reward analytics (shared pool with Weather + Business). */

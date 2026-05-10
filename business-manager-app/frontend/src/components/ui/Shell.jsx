@@ -5,7 +5,15 @@ import { useNavigate } from "react-router-dom";
 export function ScreenHeader({ title, subtitle, back = true, right = null }) {
   const nav = useNavigate();
   return (
-    <header className="px-4 pt-4 pb-3 sticky top-0 z-30 glass-bottom" style={{ borderTop: "none", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <header
+      className="screen-header px-4 pb-3 sticky top-0 z-30 glass-bottom"
+      style={{
+        borderTop: "none",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        /* Keep title/actions below system status bar / notch (viewport-fit=cover + translucent bar). */
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
+      }}
+    >
       <div className="flex items-center gap-2">
         {back && (
           <button

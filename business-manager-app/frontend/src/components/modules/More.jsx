@@ -4,7 +4,7 @@ import { ScreenHeader, PageContainer, Section } from "../ui/Shell";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   ListTodo, BarChart3, Boxes, User, Briefcase, Settings as Cog,
-  HelpCircle, MessageSquare, ChevronRight, LogOut, LogIn, Sparkles, Tags, Gift, Megaphone,
+  HelpCircle, MessageSquare, ChevronRight, LogOut, LogIn, Sparkles, Tags, Megaphone,
 } from "lucide-react";
 
 const ITEMS = [
@@ -15,7 +15,6 @@ const ITEMS = [
   { to: "/account", label: "Account Settings", desc: "Plan, sign-in, sync", icon: User, testid: "more-account" },
   { to: "/business", label: "Business Settings", desc: "Profile, address, tax", icon: Briefcase, testid: "more-business" },
   { to: "/program", label: "Program Settings", desc: "Theme, currency, prompts", icon: Cog, testid: "more-program" },
-  { to: "/testing-rewards", label: "Testing rewards", desc: "Beta tester balance", icon: Gift, testid: "more-testing-rewards" },
   { to: "/developer-messages", label: "Developer messages", desc: "Release notes and notices", icon: Megaphone, testid: "more-developer-messages" },
   { to: "/about", label: "About & Help", desc: "Version, principles, plans", icon: HelpCircle, testid: "more-about" },
   { to: "/feedback", label: "Feedback", desc: "Send us a note", icon: MessageSquare, testid: "more-feedback" },

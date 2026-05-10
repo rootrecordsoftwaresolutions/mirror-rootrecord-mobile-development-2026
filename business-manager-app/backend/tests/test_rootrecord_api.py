@@ -143,15 +143,41 @@ class TestAuth:
 # ---------------------------------------------------------------------------
 
 class TestCategoriesProjects:
-    def test_default_categories_sorted(self, admin_headers):
-        r = requests.get(f"{API}/categories", headers=admin_headers, timeout=15)
-        assert r.status_code == 200
-        cats = r.json()
-        assert len(cats) >= 12
-        # Sorted by sort_order → first is 'Coding'
-        assert cats[0]["name"] == "Coding"
-        orders = [c.get("sort_order", 0) for c in cats[:12]]
-        assert orders == sorted(orders)
+    def test_categories_crud_and_sorted(self, admin_headers):
+        tag = uuid.uuid4().hex[:8]
+        n_alpha = f"Alpha_{tag}"
+        n_zebra = f"Zebra_{tag}"
+        ids = []
+        try:
+            assert (
+                requests.post(
+                    f"{API}/categories",
+                    headers=admin_headers,
+                    json={"name": n_zebra, "color": "#111111", "kind": "time", "sort_order": 2},
+                    timeout=15,
+                ).status_code
+                == 200
+            )
+            assert (
+                requests.post(
+                    f"{API}/categories",
+                    headers=admin_headers,
+                    json={"name": n_alpha, "color": "#222222", "kind": "time", "sort_order": 1},
+                    timeout=15,
+                ).status_code
+                == 200
+            )
+            r = requests.get(f"{API}/categories", headers=admin_headers, timeout=15)
+            assert r.status_code == 200
+            cats = r.json()
+            mine = [c for c in cats if c["name"] in (n_alpha, n_zebra)]
+            assert len(mine) == 2
+            mine_sorted = sorted(mine, key=lambda c: c["name"])
+            assert [c["name"] for c in mine_sorted] == [n_alpha, n_zebra]
+            ids = [c["id"] for c in mine]
+        finally:
+            for cid in ids:
+                requests.delete(f"{API}/categories/{cid}", headers=admin_headers, timeout=15)
 
     def test_project_crud(self, admin_headers):
         payload = {"name": "TEST_Proj", "client_name": "ACME", "color": "#2B8A8F"}
@@ -375,7 +401,9 @@ class TestBusinessAndSettings:
         r = requests.post(f"{API}/feedback", headers=admin_headers,
                           json={"type": "bug", "message": "TEST_feedback"}, timeout=15)
         assert r.status_code == 200
-        assert r.json()["message"] == "TEST_feedback"
+        data = r.json()
+        # Primary Worker: Discord relay returns { ok: true }; local mock may return stored row.
+        assert data.get("ok") is True or data.get("message") == "TEST_feedback"
 
 
 # ---------------------------------------------------------------------------
@@ -433,10 +461,9 @@ class TestIsolation:
             assert r.status_code == 200
             assert not any(c["id"] == admin_client_id for c in r.json())
 
-            # user2's categories are their own default seed
+            # user2 starts with no seeded categories (same as production Worker)
             cats = requests.get(f"{API}/categories", headers=user2_headers, timeout=15).json()
-            assert len(cats) >= 12
-            assert cats[0]["name"] == "Coding"
+            assert cats == []
 
             # user2 cannot delete admin's client
             r = requests.delete(f"{API}/clients/{admin_client_id}",

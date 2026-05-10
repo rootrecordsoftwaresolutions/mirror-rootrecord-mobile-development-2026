@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-rem Manual commit for "Mobile App Development" pnpm workspace + nested rr-weather-manager-mobile.
+rem Manual commit for "Mobile App Development" pnpm workspace + nested weather-manager-mobile.
 rem Usage:   commit-workspace.bat
 rem          commit-workspace.bat your commit message here
 rem If no message is given, a default subject is used (same for both repos when both commit).
@@ -28,15 +28,15 @@ if errorlevel 1 (
 )
 
 :mobile
-if not exist "rr-weather-manager-mobile\.git" (
+if not exist "weather-manager-mobile\.git" (
   echo.
-  echo rr-weather-manager-mobile: no .git here, skipping nested repo.
+  echo weather-manager-mobile: no .git here, skipping nested repo.
   goto :done
 )
 
 echo.
-echo ========== rr-weather-manager-mobile ==========
-pushd "rr-weather-manager-mobile" || goto :done
+echo ========== weather-manager-mobile ==========
+pushd "weather-manager-mobile" || goto :done
 
 git add -A
 git diff --cached --quiet

@@ -33,9 +33,20 @@ import {
   useUnits,
 } from '../lib/format';
 import AccuWeatherIcon from '../components/AccuWeatherIcon';
+import { safeLocalStorage } from '../lib/storage';
+import { alertDescriptionForDisplay } from '../lib/alertText';
 
 /** Skip `/api/dashboard` while a snapshot for this location is younger than this (matches server TTL). */
 const WEATHER_SNAPSHOT_MAX_AGE_MS = 15 * 60 * 1000;
+
+/** NWS / Accu payloads sometimes nest strings as objects; React throws if we render a non-primitive. */
+function safeText(v, fallback = '—') {
+  if (v == null) return fallback;
+  if (typeof v === 'string') return v.trim() || fallback;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  return fallback;
+}
 
 function weatherSnapshotKey(locationId) {
   return `rrwm.weatherSnap.v1.${locationId}`;
@@ -44,7 +55,7 @@ function weatherSnapshotKey(locationId) {
 function readWeatherSnapshot(locationId) {
   if (!locationId) return null;
   try {
-    const raw = localStorage.getItem(weatherSnapshotKey(locationId));
+    const raw = safeLocalStorage.getItem(weatherSnapshotKey(locationId));
     if (!raw) return null;
     const row = JSON.parse(raw);
     const bundle = row?.bundle;
@@ -64,7 +75,7 @@ function readWeatherSnapshot(locationId) {
 function writeWeatherSnapshot(locationId, bundle) {
   if (!locationId || !bundle) return;
   try {
-    localStorage.setItem(
+    safeLocalStorage.setItem(
       weatherSnapshotKey(locationId),
       JSON.stringify({ bundle, savedAt: new Date().toISOString() })
     );
@@ -93,6 +104,42 @@ function usgsEventDetailUrl(e) {
   const slug = String(raw).split('/').pop();
   if (!slug) return null;
   return `https://earthquake.usgs.gov/earthquakes/eventpage/${encodeURIComponent(slug)}`;
+}
+
+/** `provider` is set by the Worker; infer from bundle for older cached payloads. */
+function alertProviderLabel(a, bundle) {
+  let p = String(a?.provider || '').toLowerCase();
+  if (!p) {
+    const src = String(bundle?.alerts?.source || '').toLowerCase();
+    if (src === 'accuweather') p = 'accuweather';
+    else if (src === 'noaa') p = 'noaa';
+  }
+  if (p === 'accuweather') return 'AccuWeather';
+  if (p === 'canada') return 'Environment Canada';
+  if (p === 'noaa') return 'NOAA';
+  return 'Weather';
+}
+
+function alertSeverityLabel(a) {
+  const s = a?.severity;
+  if (s != null && s !== '' && Number.isFinite(Number(s))) return 'Alert';
+  const t = safeText(s, '');
+  return t || 'Info';
+}
+
+function alertPreviewText(a) {
+  const desc = alertDescriptionForDisplay(a).replace(/\s+/g, ' ').trim();
+  const hl =
+    typeof a?.headline === 'string'
+      ? a.headline.replace(/\s+/g, ' ').trim()
+      : '';
+  const ev = typeof a?.event === 'string' ? a.event.trim() : '';
+  let body = desc || hl;
+  if (ev && body.toLowerCase().startsWith(ev.toLowerCase().slice(0, Math.min(24, ev.length)))) {
+    body = desc.length > ev.length ? desc : hl;
+  }
+  if (!body) return '—';
+  return body.length > 220 ? `${body.slice(0, 220)}…` : body;
 }
 
 function LocationPicker({ locations, activeId, onPick }) {
@@ -124,7 +171,9 @@ function LocationPicker({ locations, activeId, onPick }) {
             >
               <span>{l.name}</span>
               <span className="text-[10px] font-mono text-accent/70">
-                {l.latitude.toFixed(2)},{l.longitude.toFixed(2)}
+                {Number.isFinite(Number(l.latitude)) && Number.isFinite(Number(l.longitude))
+                  ? `${Number(l.latitude).toFixed(2)},${Number(l.longitude).toFixed(2)}`
+                  : '—'}
               </span>
             </button>
           ))}
@@ -139,35 +188,49 @@ export default function Home() {
   // Forces rerender when units change (Settings toggle).
   useUnits();
   const [locations, setLocations] = useState([]);
-  const [activeId, setActiveId] = useState(localStorage.getItem('rrwm.activeLocationId') || '');
+  const [activeId, setActiveId] = useState(safeLocalStorage.getItem('rrwm.activeLocationId') || '');
   const [bundle, setBundle] = useState(null);
   /** Which location id `bundle` was loaded for (avoids empty UI gap before first dashboard response). */
   const [bundleLocId, setBundleLocId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState('');
+  const [locationsLoading, setLocationsLoading] = useState(true);
 
   const loadLocations = useCallback(async () => {
+    setLocationsLoading(true);
     try {
       const { data } = await api.listLocations();
-      setLocations(data || []);
-      if (data && data.length && !data.find((d) => d.id === activeId)) {
-        setActiveId(data[0].id);
-        localStorage.setItem('rrwm.activeLocationId', data[0].id);
-      }
+      const rows = data || [];
+      setLocations(rows);
+      setActiveId((prev) => {
+        if (rows.length && !rows.find((d) => d.id === prev)) {
+          const next = rows[0].id;
+          safeLocalStorage.setItem('rrwm.activeLocationId', next);
+          return next;
+        }
+        return prev;
+      });
+      setErr('');
     } catch (e) {
       const cached = getCachedLocations();
       if (cached.length) {
         setLocations(cached);
-        if (!cached.find((d) => d.id === activeId)) {
-          setActiveId(cached[0].id);
-          localStorage.setItem('rrwm.activeLocationId', cached[0].id);
-        }
+        setActiveId((prev) => {
+          if (!cached.find((d) => d.id === prev)) {
+            const next = cached[0].id;
+            safeLocalStorage.setItem('rrwm.activeLocationId', next);
+            return next;
+          }
+          return prev;
+        });
         setErr('Could not sync latest locations. Showing saved device copy.');
       } else {
         setErr(String(e?.response?.data?.detail || e?.message || 'Failed to load locations'));
       }
+    } finally {
+      setLocationsLoading(false);
     }
-  }, [activeId]);
+  }, []);
 
   const loadBundle = useCallback(async (loc, opts = {}) => {
     if (!loc) return;
@@ -199,7 +262,22 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => { loadLocations(); }, [loadLocations]);
+  useEffect(() => {
+    // Hydrate from local cache immediately to avoid showing "Add location" between cold start and API response.
+    const cached = getCachedLocations();
+    if (cached.length) {
+      setLocations(cached);
+      setActiveId((prev) => {
+        if (!cached.find((d) => d.id === prev)) {
+          const next = cached[0].id;
+          safeLocalStorage.setItem('rrwm.activeLocationId', next);
+          return next;
+        }
+        return prev;
+      });
+    }
+    loadLocations();
+  }, [loadLocations]);
 
   useEffect(() => {
     const loc = locations.find((l) => l.id === activeId) || locations[0];
@@ -215,12 +293,22 @@ export default function Home() {
 
   const setActive = (id) => {
     setActiveId(id);
-    localStorage.setItem('rrwm.activeLocationId', id);
+    safeLocalStorage.setItem('rrwm.activeLocationId', id);
   };
 
   const activeLoc = locations.find((l) => l.id === activeId) || locations[0];
   /** Full skeleton until dashboard matches active location (covers first location + picker changes; not plain refresh). */
   const showWeatherSkeleton = Boolean(activeLoc) && !err && bundleLocId !== activeLoc.id;
+
+  if (locationsLoading && locations.length === 0) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[70vh] text-center" data-testid="home-loading">
+        <Loader2 strokeWidth={1.5} className="w-10 h-10 text-accent mb-4 animate-spin" aria-hidden />
+        <h1 className="text-xl font-semibold mb-2">Loading…</h1>
+        <p className="text-neutral-400 max-w-xs">Syncing your saved locations.</p>
+      </div>
+    );
+  }
 
   if (locations.length === 0) {
     return (
@@ -266,11 +354,12 @@ export default function Home() {
     obs?.windDirection?.value !== undefined && obs.windDirection.value !== null
       ? `${Math.round(obs.windDirection.value)}°`
       : obs?.windDirectionCardinal || (typeof hourlyNow?.windDirection === 'string' ? hourlyNow.windDirection : '');
-  const condition = hourlyNow?.shortForecast || obs?.textDescription || '—';
+  const condition = safeText(hourlyNow?.shortForecast ?? obs?.textDescription, '—');
   const nowIconCode = hourlyNow?.icon ?? bundle?.current?.icon ?? null;
-  const gridHigh = bundle?.forecast?.periods?.find((p) => p.isDaytime)?.temperature;
-  const gridLow = bundle?.forecast?.periods?.find((p) => !p.isDaytime)?.temperature;
-  const periodUnit = String(bundle?.forecast?.periods?.[0]?.temperatureUnit || 'F')
+  const forecastPeriods = Array.isArray(bundle?.forecast?.periods) ? bundle.forecast.periods : [];
+  const gridHigh = forecastPeriods.find((p) => p.isDaytime)?.temperature;
+  const gridLow = forecastPeriods.find((p) => !p.isDaytime)?.temperature;
+  const periodUnit = String(forecastPeriods[0]?.temperatureUnit || 'F')
     .trim()
     .toUpperCase() === 'C'
     ? 'C'
@@ -338,7 +427,7 @@ export default function Home() {
                   <div className="mt-2 text-accent/80">{condition}</div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <AccuWeatherIcon code={nowIconCode} className="w-11 h-11 text-accent" title={condition} />
+                  <AccuWeatherIcon code={nowIconCode} className="w-11 h-11 text-accent" title={safeText(condition, '')} />
                   <div className="text-right text-xs text-accent/70 font-mono">
                     {high !== undefined && <div>HIGH <span className="text-white">{fmtTemp(high, periodUnit)}</span></div>}
                     {low !== undefined && <div>LOW <span className="text-white">{fmtTemp(low, periodUnit)}</span></div>}
@@ -350,8 +439,24 @@ export default function Home() {
             {/* Bento metrics */}
             <div className="grid grid-cols-2 gap-3 mb-3">
               <Bento icon={Wind} label="Wind" value={fmtSpeedKmH(wind)} sub={windDirSub} />
-              <Bento icon={Droplets} label="Humidity" value={humidity != null ? `${Math.round(humidity)}%` : '—'} />
-              <Bento icon={Gauge} label="Pressure" value={pressurePa != null ? `${(pressurePa/100).toFixed(0)} hPa` : '—'} />
+              <Bento
+                icon={Droplets}
+                label="Humidity"
+                value={
+                  humidity != null && Number.isFinite(Number(humidity))
+                    ? `${Math.round(Number(humidity))}%`
+                    : '—'
+                }
+              />
+              <Bento
+                icon={Gauge}
+                label="Pressure"
+                value={
+                  pressurePa != null && Number.isFinite(Number(pressurePa))
+                    ? `${(Number(pressurePa) / 100).toFixed(0)} hPa`
+                    : '—'
+                }
+              />
               <Bento icon={Sun} label="Visibility" value={obs?.visibility?.value != null ? fmtKmOrMi(obs.visibility.value / 1000, 1) : '—'} />
             </div>
 
@@ -373,22 +478,22 @@ export default function Home() {
               <div className="mb-6">
                 <h2 className="text-[10px] font-mono uppercase tracking-widest text-accent/70 mb-2">Next 12 hours</h2>
                 <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 pt-0.5" data-testid="home-hourly-strip">
-                  {bundle.forecast.hourly.slice(0, 12).map((p) => (
+                  {bundle.forecast.hourly.filter((p) => p && typeof p === 'object').slice(0, 12).map((p, idx) => (
                     <div
-                      key={p.number}
+                      key={p.number != null ? p.number : `h-${idx}`}
                       className="flex min-w-[80px] max-w-[92px] shrink-0 flex-col bg-container border border-subtle px-2.5 py-3 text-center"
                     >
                       <div className="text-[10px] font-mono text-accent/70 shrink-0">
                         {new Date(p.startTime).toLocaleTimeString([], { hour: 'numeric' })}
                       </div>
                       <div className="mt-1 flex items-center justify-center shrink-0">
-                        <AccuWeatherIcon code={p.icon} className="w-8 h-8 text-neutral-200" title={p.shortForecast} />
+                        <AccuWeatherIcon code={p.icon} className="w-8 h-8 text-neutral-200" title={safeText(p?.shortForecast, '')} />
                       </div>
                       <div className="font-mono text-lg mt-1 shrink-0">
                         {fmtHourlyGridTemp(p, hourlyGridUnits)}
                       </div>
                       <div className="mt-2 min-h-[4rem] text-[10px] leading-snug text-accent/70 line-clamp-4 break-words hyphens-auto">
-                        {p.shortForecast}
+                        {safeText(p?.shortForecast, '—')}
                       </div>
                     </div>
                   ))}
@@ -398,9 +503,16 @@ export default function Home() {
 
             {/* Alerts (NOAA + Canada) */}
             {(() => {
+              const noaaRaw = bundle?.alerts?.alerts;
+              const caRaw = bundle?.canada_alerts?.alerts;
+              const noaaList = Array.isArray(noaaRaw) ? noaaRaw : [];
+              const caList = Array.isArray(caRaw) ? caRaw : [];
+              const src = String(bundle?.alerts?.source || '').toLowerCase();
+              const inferred =
+                src === 'accuweather' ? 'accuweather' : src === 'noaa' ? 'noaa' : 'noaa';
               const all = [
-                ...(bundle?.alerts?.alerts || []).map((a) => ({ ...a, source: 'NOAA' })),
-                ...(bundle?.canada_alerts?.alerts || []).map((a) => ({ ...a, source: 'Canada' })),
+                ...noaaList.map((a) => ({ ...a, provider: a.provider || inferred })),
+                ...caList.map((a) => ({ ...a, provider: a.provider || 'canada' })),
               ];
               if (!all.length) return null;
               return (
@@ -411,17 +523,42 @@ export default function Home() {
                   <div className="bg-container border border-subtle">
                     {all.slice(0, 5).map((a, i) => {
                       const c = severityClass(a.severity);
+                      const title =
+                        safeText(a.event, '') || safeText(a.headline, '') || 'Alert';
                       return (
-                        <div key={a.id || i} className="p-3 border-b border-subtle last:border-0" data-testid="home-alert-row">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] uppercase tracking-widest px-2 py-0.5 border ${c.bg} ${c.text} ${c.border} font-mono`}>
-                              {a.severity || 'Info'} · {a.source}
-                            </span>
+                        <button
+                          type="button"
+                          key={a.id || i}
+                          data-testid="home-alert-row"
+                          onClick={() => navigate('/alert', { state: { alert: a } })}
+                          className={clsx(
+                            'w-full text-left p-3 border-b border-subtle last:border-0',
+                            'hover:bg-containerHover active:opacity-90',
+                            'flex gap-3 items-start'
+                          )}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span
+                                className={`text-[10px] uppercase tracking-widest px-2 py-0.5 border ${c.bg} ${c.text} ${c.border} font-mono`}
+                              >
+                                {alertSeverityLabel(a)} · {alertProviderLabel(a, bundle)}
+                              </span>
+                            </div>
+                            <div className="text-sm font-medium leading-tight text-white">{title}</div>
+                            <div className="text-xs text-accent/70 mt-1 line-clamp-3 break-words">
+                              {alertPreviewText(a)}
+                            </div>
+                            <div className="text-[10px] font-mono text-accent/60 mt-1">
+                              {formatTime(a.effective || a.sent)}
+                            </div>
                           </div>
-                          <div className="text-sm font-medium leading-tight">{a.event || a.headline || 'Alert'}</div>
-                          <div className="text-xs text-accent/70 mt-1 line-clamp-2">{a.headline || a.areaDesc}</div>
-                          <div className="text-[10px] font-mono text-accent/60 mt-1">{formatTime(a.effective || a.sent)}</div>
-                        </div>
+                          <ArrowUpRight
+                            strokeWidth={1.5}
+                            className="w-4 h-4 shrink-0 text-accent mt-1"
+                            aria-hidden
+                          />
+                        </button>
                       );
                     })}
                   </div>
@@ -434,7 +571,7 @@ export default function Home() {
               <div className="mb-6">
                 <h2 className="text-[10px] font-mono uppercase tracking-widest text-accent/70 mb-2">Recent earthquakes (300mi)</h2>
                 <div className="bg-container border border-subtle">
-                  {bundle.usgs.events.slice(0, 4).map((e) => {
+                  {bundle.usgs.events.filter((e) => e && typeof e === 'object').slice(0, 4).map((e) => {
                     const detailUrl = usgsEventDetailUrl(e);
                     const rowClass = clsx(
                       'flex items-center gap-3 p-3 border-b border-subtle last:border-0',
@@ -451,9 +588,11 @@ export default function Home() {
                           {Number(e.magnitude).toFixed(1)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm truncate">{e.place}</div>
+                          <div className="text-sm truncate">{safeText(e.place, 'Unknown')}</div>
                           <div className="text-[10px] font-mono text-accent/70">
-                            {e.depth_km != null && `${e.depth_km.toFixed(0)} km · `}
+                            {e.depth_km != null &&
+                              Number.isFinite(Number(e.depth_km)) &&
+                              `${Number(e.depth_km).toFixed(0)} km · `}
                             {e.distance_miles != null && `${fmtMileOrKm(e.distance_miles)} away`}
                           </div>
                         </div>

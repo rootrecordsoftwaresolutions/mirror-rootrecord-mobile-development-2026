@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { ScreenHeader, PageContainer, Section } from "../ui/Shell";
 import { REGISTERED_APPS, UPCOMING_APPS } from "../../lib/apps";
 import { api } from "../../lib/api";
@@ -10,11 +11,12 @@ import {
   MapPin,
   Receipt,
   Wallet,
+  Flame,
   ArrowUpRight,
   Check,
 } from "lucide-react";
 
-const ICONS = { Cloud, Briefcase, ShieldCheck, MapPin, Receipt, Wallet };
+const ICONS = { Cloud, Briefcase, ShieldCheck, MapPin, Receipt, Wallet, Flame };
 
 export default function ConnectedApps() {
   const [serverApps, setServerApps] = useState(null);
@@ -67,9 +69,10 @@ export default function ConnectedApps() {
           className="text-xs text-ink-tertiary text-center px-4 mt-2"
           data-testid="apps-footnote"
         >
-          <strong className="text-ink-secondary">Weather Manager</strong> and{" "}
-          <strong className="text-ink-secondary">Business Manager</strong>: use{" "}
-          <span className="font-mono">Open</span> to try the app, then join the{" "}
+          <strong className="text-ink-secondary">Weather Manager</strong>,{" "}
+          <strong className="text-ink-secondary">Business Manager</strong>, and{" "}
+          <strong className="text-ink-secondary">Kīlauea Alerts</strong>: on the web,{" "}
+          <span className="font-mono">Open</span> goes to each product subdomain; on Android it tries the installed app, then the{" "}
           <a
             className="text-brand font-semibold underline underline-offset-2"
             href="https://groups.google.com/u/1/g/rootrecordtesting"
@@ -93,7 +96,20 @@ function AppCard({ app, dimmed }) {
   const isComingSoon = app.status === "coming_soon";
 
   function openApp() {
-    // Attempt native deep link; if not installed the scheme quietly fails — we
+    const isNative =
+      typeof Capacitor !== "undefined" &&
+      typeof Capacitor.isNativePlatform === "function" &&
+      Capacitor.isNativePlatform();
+    // Browser / PWA: open the product subdomain in a new tab.
+    if (!isNative && app.webOpenUrl && typeof window !== "undefined") {
+      try {
+        window.open(app.webOpenUrl, "_blank", "noopener,noreferrer");
+      } catch {
+        /* no-op */
+      }
+      return;
+    }
+    // Android WebView: attempt native deep link; if not installed the scheme quietly fails — we
     // don't use window.confirm here since it's blocked in Capacitor WebView.
     if (app.androidScheme && typeof window !== "undefined") {
       try {

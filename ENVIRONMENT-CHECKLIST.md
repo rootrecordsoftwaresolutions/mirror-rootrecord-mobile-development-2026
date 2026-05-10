@@ -33,7 +33,7 @@ Both `deploy.ps1` scripts **walk up directories** until they find `credentials.e
 | Business — CRA | `business-manager-app/frontend/.env.local` | `frontend/.env.example` |
 | Business — Python API | `business-manager-app/backend/.env` | `backend/.env.example` |
 
-Production mobile builds default **`https://api.rootrecord.info`**; only set `REACT_APP_BACKEND_URL` when you intentionally point at another host.
+Production **Android (Capacitor)** builds default **`https://api.rootrecord.info`**. Production **web (Pages)** defaults to the per-app shard on **`rootrecord-api-*.rootrecord.workers.dev`**. Set `REACT_APP_BACKEND_URL` (or Token’s `REACT_APP_RR_BACKEND_URL`, Kīlauea’s `VITE_ROOTRECORD_API_ORIGIN`) when you intentionally point at another host (e.g. a custom `api-*.rootrecord.info` domain).
 
 ## Android (not in Git)
 
