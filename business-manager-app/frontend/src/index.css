@@ -4,13 +4,15 @@
 
 :root {
   color-scheme: dark;
-  --bg-base: #080c0c;
-  --bg-surface: #101818;
-  --bg-elevated: #182222;
-  --ink-primary: #f4faf9;
-  --ink-secondary: #9cb0ae;
-  --ink-tertiary: #5c6e6c;
-  --brand: #34a8a3;
+  /* Weather Manager web palette */
+  --bg-base: #060d14;
+  --bg-surface: #0c1824;
+  --bg-elevated: #122a3d;
+  --ink-primary: #e8f4ef;
+  --ink-secondary: rgba(232, 244, 239, 0.55);
+  --ink-tertiary: rgba(232, 244, 239, 0.38);
+  --brand: #5ee9b0;
+  --brand-light: #7ef0c0;
 }
 
 html, body, #root {
@@ -18,7 +20,7 @@ html, body, #root {
   padding: 0;
   background: var(--bg-base);
   color: var(--ink-primary);
-  font-family: "Work Sans", system-ui, sans-serif;
+  font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
@@ -26,10 +28,9 @@ html, body, #root {
 
 body {
   min-height: 100vh;
-  /* subtle radial vignette on app base for "grounded" feel without flat black */
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(43,138,143,0.08), transparent 60%),
-    radial-gradient(1000px 500px at -10% 110%, rgba(43,138,143,0.05), transparent 60%),
+    radial-gradient(1200px 600px at 80% -10%, rgba(94, 233, 176, 0.07), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, rgba(94, 233, 176, 0.05), transparent 60%),
     var(--bg-base);
 }
 
@@ -43,7 +44,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   outline-offset: 2px;
 }
 
-::selection { background: rgba(43,138,143,0.45); color: #fff; }
+::selection {
+  background: #5ee9b0;
+  color: #04120a;
+}
 
 /* Hide scrollbars on horizontal scroll containers */
 .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -92,7 +96,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   padding: 0 18px;
   border-radius: 12px;
   font-weight: 600;
-  font-family: "Manrope", system-ui, sans-serif;
+  font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
   transition: transform 75ms ease, opacity 150ms ease, background-color 150ms ease;
   border: 1px solid transparent;
   cursor: pointer;
@@ -101,8 +105,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 .btn:active { transform: scale(0.98); opacity: 0.92; }
 .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
-.btn-primary { background: var(--brand); color: #fff; }
-.btn-primary:hover { background: #2f9aa0; }
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--brand-light);
+}
 .btn-secondary { background: var(--bg-elevated); color: var(--ink-primary); border-color: rgba(255,255,255,0.10); }
 .btn-ghost { background: transparent; color: var(--ink-primary); }
 .btn-danger { background: rgba(244,63,94,0.15); color: #FB7185; border-color: rgba(244,63,94,0.3); }
@@ -133,10 +142,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 }
 
 .glass-bottom {
-  background: rgba(11,16,16,0.85);
+  background: rgba(6, 13, 20, 0.88);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Mobile: narrow column; desktop: use width with sidebar */
@@ -158,7 +167,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 @media (min-width: 1024px) {
   .business-web-main {
     min-height: 100dvh;
-    background: linear-gradient(165deg, rgba(52, 168, 163, 0.06) 0%, transparent 42%), var(--bg-base);
+    background: linear-gradient(165deg, rgba(94, 233, 176, 0.07) 0%, transparent 42%), var(--bg-base);
   }
 }
 

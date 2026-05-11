@@ -3,17 +3,24 @@ import { Capacitor } from '@capacitor/core';
 import { attachAxiosNetworkResilience } from './httpResilience';
 import { safeLocalStorage } from './storage';
 
-// Native Android (Capacitor): shared primary. Product web (Pages): per-app shard Worker.
+// Native Android (Capacitor): shared primary. Web: shard Worker (workers.dev) unless REACT_APP_BACKEND_URL overrides (e.g. https://api-weather.rootrecord.info after Custom Hostname + DNS).
 const PRIMARY_BACKEND = 'https://api.rootrecord.info';
 const SHARD_WEB_BACKEND = 'https://rootrecord-api-weather.rootrecord.workers.dev';
 
-function defaultBackend() {
+function isNativeAndroid() {
   try {
-    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.()) return PRIMARY_BACKEND;
+    return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
   } catch {
-    /* no-op */
+    return false;
   }
+}
+
+function webBackendForProductPages() {
   return SHARD_WEB_BACKEND;
+}
+
+function defaultBackend() {
+  return isNativeAndroid() ? PRIMARY_BACKEND : webBackendForProductPages();
 }
 
 function normalizeBackendBase(raw) {
@@ -46,7 +53,11 @@ function isLocalDevBackend(base) {
 const fromEnv = normalizeBackendBase(process.env.REACT_APP_BACKEND_URL);
 const useProdFallback =
   process.env.NODE_ENV === 'production' && fromEnv && isLocalDevBackend(fromEnv);
-const BACKEND = useProdFallback ? PRIMARY_BACKEND : fromEnv || defaultBackend();
+const BACKEND = useProdFallback
+  ? isNativeAndroid()
+    ? PRIMARY_BACKEND
+    : SHARD_WEB_BACKEND
+  : fromEnv || defaultBackend();
 const API = `${BACKEND}/api`;
 
 /** Ecosystem id for per-app earn/reward analytics (server + this build). */
@@ -114,6 +125,7 @@ attachAxiosNetworkResilience(client, { maxRetries: 3 });
 client.interceptors.request.use((cfg) => {
   const auth = authHeaders();
   if (auth.Authorization) cfg.headers.Authorization = auth.Authorization;
+  if (!isNativeAndroid()) cfg.withCredentials = true;
   return cfg;
 });
 
@@ -201,6 +213,21 @@ export function listDeveloperMessages() {
   return client.get('/mobile/developer-messages', { params: { app_id: RR_APP_ID } });
 }
 
+/** After signing in on another `*.rootrecord.info` app, `/auth/me` + HttpOnly cookie can hydrate this origin's localStorage. */
+export async function tryHydrateSessionFromCookie() {
+  if (isNativeAndroid()) return false;
+  if (session.isAuthed()) return true;
+  try {
+    const { data } = await client.post('/auth/me');
+    const tok = data.access_token || data.token;
+    if (!tok || !data.email) return false;
+    session.setSession(tok, data.email, data.pro_unlocked, data.life_member);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const api = {
   health: () => client.get('/health'),
   // auth — device_id matches desktop licenseService (Worker forwards to POST /v1/auth/*).
@@ -254,6 +281,10 @@ export const api = {
         lon,
         ...(opts.locationId ? { location_id: opts.locationId } : {}),
         ...(opts.forceRefresh ? { refresh: true } : {}),
+      },
+      headers: {
+        'Cache-Control': 'no-store',
+        Pragma: 'no-cache',
       },
     }),
   // hazards

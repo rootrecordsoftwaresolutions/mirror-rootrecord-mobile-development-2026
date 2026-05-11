@@ -32,12 +32,25 @@ export function useUnits() {
   return units;
 }
 
-function nwsScalarNumber(raw) {
+export function nwsScalarNumber(raw) {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
-  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
-    const n = Number(raw.value);
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (!t) return null;
+    const m = t.match(/-?\d+(?:\.\d+)?/);
+    if (!m) return null;
+    const n = Number(m[0]);
     return Number.isFinite(n) ? n : null;
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    if (Array.isArray(raw) || raw instanceof Date) return null;
+    const v = raw.value ?? raw.Value;
+    if (v !== undefined && v !== null && v !== '') {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
   }
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;

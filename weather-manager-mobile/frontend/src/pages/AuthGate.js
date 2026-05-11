@@ -63,8 +63,9 @@ export default function AuthGate({ onSignedIn }) {
         }
       }
       const { data } = res;
-      if (!data.token) throw new Error('No session token returned. Try again.');
-      session.setSession(data.token, data.email, data.pro_unlocked, data.life_member);
+      const tok = data.access_token || data.token;
+      if (!tok) throw new Error('No session token returned. Try again.');
+      session.setSession(tok, data.email, data.pro_unlocked, data.life_member);
       onSignedIn?.();
       navigate('/', { replace: true });
     } catch (e2) {

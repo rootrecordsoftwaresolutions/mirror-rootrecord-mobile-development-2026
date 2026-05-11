@@ -2,17 +2,24 @@ import axios from "axios";
 import { Capacitor } from "@capacitor/core";
 import { attachAxiosNetworkResilience } from "./httpResilience";
 
-// Native Android (Capacitor): shared primary. Product web (Pages): per-app shard Worker.
+// Native Android (Capacitor): shared primary. Web: shard Worker (workers.dev) unless REACT_APP_BACKEND_URL overrides (e.g. https://api-business.rootrecord.info after Custom Hostname + DNS).
 const PRIMARY_BACKEND = "https://api.rootrecord.info";
 const SHARD_WEB_BACKEND = "https://rootrecord-api-business.rootrecord.workers.dev";
 
-function defaultBackend() {
+function isNativeAndroid() {
   try {
-    if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform?.()) return PRIMARY_BACKEND;
+    return typeof Capacitor !== "undefined" && Capacitor.isNativePlatform?.();
   } catch {
-    /* no-op */
+    return false;
   }
+}
+
+function webBackendForProductPages() {
   return SHARD_WEB_BACKEND;
+}
+
+function defaultBackend() {
+  return isNativeAndroid() ? PRIMARY_BACKEND : webBackendForProductPages();
 }
 
 function normalizeBackendBase(raw) {
@@ -44,7 +51,11 @@ function isLocalDevBackend(base) {
 const fromEnv = normalizeBackendBase(process.env.REACT_APP_BACKEND_URL);
 const useProdFallback =
   process.env.NODE_ENV === "production" && fromEnv && isLocalDevBackend(fromEnv);
-const BACKEND = useProdFallback ? PRIMARY_BACKEND : fromEnv || defaultBackend();
+const BACKEND = useProdFallback
+  ? isNativeAndroid()
+    ? PRIMARY_BACKEND
+    : SHARD_WEB_BACKEND
+  : fromEnv || defaultBackend();
 const API_BASE = `${BACKEND}/api`;
 
 /** Same earn / signup-bonus accounting as Weather; separate per-app daily caps. */
@@ -90,6 +101,7 @@ export function getDeviceId() {
 api.interceptors.request.use((cfg) => {
   const t = getToken();
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
+  if (!isNativeAndroid()) cfg.withCredentials = true;
   return cfg;
 });
 

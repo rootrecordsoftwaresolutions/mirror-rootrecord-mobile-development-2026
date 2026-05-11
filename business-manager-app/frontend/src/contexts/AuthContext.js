@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { api, getToken, setToken, getDeviceId } from "../lib/api";
+import { api, setToken, getDeviceId } from "../lib/api";
 import { loadProgramSettingsLocal, toProgramSettingsPatch } from "../lib/programSettings";
 
 /** Merge device `localStorage` program prefs into D1 via PATCH /settings (non-blocking). */
@@ -72,13 +72,10 @@ export function AuthProvider({ children }) {
   const [guest, setGuest] = useState(() => localStorage.getItem("rrbm_guest") === "1");
 
   const refresh = useCallback(async () => {
-    const t = getToken();
-    if (!t) {
-      setUser(null);
-      return;
-    }
     try {
       const { data } = await api.post("/auth/me");
+      const tok = data.access_token || data.token;
+      if (tok) setToken(tok);
       setUser(userFromMePayload(data));
     } catch {
       setToken("");

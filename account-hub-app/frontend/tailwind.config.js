@@ -5,24 +5,26 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['"Space Grotesk"', "system-ui", "sans-serif"],
-        body: ['"Inter"', "system-ui", "sans-serif"],
-        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+        heading: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
+        body: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
       },
       colors: {
-        // Account Hub: dark "pearl" theme with amber brand — intentionally distinct from
-        // Weather (#3FE28D green) and Business (#2B8A8F teal).
-        bg: { base: "#0B0D12", surface: "#141821", elevated: "#1D2230" },
-        ink: { primary: "#F5F3EE", secondary: "#A6A39A", tertiary: "#6B6A63" },
-        brand: {
-          DEFAULT: "#E9B949",
-          light: "#F4CE6B",
-          dark: "#B8902E",
-          subtle: "rgba(233,185,73,0.12)",
+        /* Same core palette as Weather Manager web. */
+        bg: { base: "#060d14", surface: "#0c1824", elevated: "#122a3d" },
+        ink: {
+          primary: "#e8f4ef",
+          secondary: "rgba(232,244,239,0.55)",
+          tertiary: "rgba(232,244,239,0.38)",
         },
-        // Cross-brand tints used by the Connected Apps cards
-        weather: "#3FE28D",
-        business: "#2B8A8F",
+        brand: {
+          DEFAULT: "#5ee9b0",
+          light: "#7ef0c0",
+          dark: "#4ad198",
+          subtle: "rgba(94,233,176,0.18)",
+        },
+        weather: "#5ee9b0",
+        business: "#5ee9b0",
         ok: "#10B981",
         warn: "#F59E0B",
         danger: "#F43F5E",

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { getToken, earnHeartbeat, earnCheckin, isBackendConfigured, RR_APP_ID } from "./lib/api";
 import BottomNav from "./components/ui/BottomNav";
@@ -19,6 +19,7 @@ import DeveloperMessages from "./components/modules/DeveloperMessages";
 /** Same earn heartbeat pattern as Weather Manager — shared `rr_earn_*` balance on the API Worker. */
 function EarnHeartbeat() {
   const loc = useLocation();
+  const { user } = useAuth();
   useEffect(() => {
     if (!getToken()) return undefined;
     const page = loc.pathname || "/";
@@ -26,7 +27,7 @@ function EarnHeartbeat() {
     tick();
     const id = setInterval(tick, 25_000);
     return () => clearInterval(id);
-  }, [loc.pathname]);
+  }, [loc.pathname, user]);
   return null;
 }
 
@@ -80,9 +81,22 @@ function Gate({ children }) {
   return children;
 }
 
+/** Left rail padding only when the sidebar is shown (not on /auth — avoids off-center sign-in on desktop). */
+function AppLayoutShell() {
+  const loc = useLocation();
+  const padRail = !loc.pathname.startsWith("/auth");
+  return (
+    <div className={`business-web-main min-h-[100dvh] ${padRail ? "lg:pl-56" : ""}`}>
+      <Outlet />
+      <BottomNav />
+    </div>
+  );
+}
+
 function AppRoutes() {
   return (
     <Routes>
+      <Route element={<AppLayoutShell />}>
       <Route path="/auth" element={<AuthScreen />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/dashboard" element={<Gate><Dashboard /></Gate>} />
@@ -102,6 +116,7 @@ function AppRoutes() {
       <Route path="/testing-rewards" element={<Gate><Navigate to="/account" replace /></Gate>} />
       <Route path="/developer-messages" element={<Gate><DeveloperMessages /></Gate>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
     </Routes>
   );
 }
@@ -112,10 +127,7 @@ export default function App() {
       <BrowserRouter>
         <EarnHeartbeat />
         <DailyEarnCheckin />
-        <div className="business-web-main min-h-[100dvh] lg:pl-56">
-          <AppRoutes />
-          <BottomNav />
-        </div>
+        <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
   );

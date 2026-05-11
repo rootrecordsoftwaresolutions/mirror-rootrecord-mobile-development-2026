@@ -31,6 +31,7 @@ import {
   clsx,
   alignDailyHighLowWithNow,
   useUnits,
+  nwsScalarNumber,
 } from '../lib/format';
 import AccuWeatherIcon from '../components/AccuWeatherIcon';
 import { safeLocalStorage } from '../lib/storage';
@@ -336,20 +337,20 @@ export default function Home() {
 
   const obs = bundle?.current?.observation || {};
   const hourlyNow = bundle?.current?.hourly_now || {};
-  const tempC = obs?.temperature?.value;
-  const feelsLikeC = obs?.feelsLike?.value ?? hourlyNow?.feelsLike;
-  const dewPointC = obs?.dewpoint?.value ?? hourlyNow?.dewPoint;
-  const wetBulbC = obs?.wetBulbTemperature?.value ?? hourlyNow?.wetBulb;
-  const humidity = obs?.relativeHumidity?.value ?? hourlyNow?.relativeHumidity?.value;
-  const wind = obs?.windSpeed?.value; // km/h
-  const gust = obs?.windGust?.value;
-  const pressurePa = obs?.barometricPressure?.value;
-  const cloudPct = obs?.cloudCover?.value;
-  const uvIndex = obs?.uvIndex;
-  const precip1hMm = obs?.precip1h?.value;
-  const precip3hMm = obs?.precipPast3h?.value;
-  const precip6hMm = obs?.precipPast6h?.value;
-  const ceilingM = obs?.ceiling?.value;
+  const tempC = nwsScalarNumber(obs?.temperature);
+  const feelsLikeC = nwsScalarNumber(obs?.feelsLike) ?? nwsScalarNumber(hourlyNow?.feelsLike);
+  const dewPointC = nwsScalarNumber(obs?.dewpoint) ?? nwsScalarNumber(hourlyNow?.dewPoint);
+  const wetBulbC = nwsScalarNumber(obs?.wetBulbTemperature) ?? nwsScalarNumber(hourlyNow?.wetBulb);
+  const humidity = nwsScalarNumber(obs?.relativeHumidity) ?? nwsScalarNumber(hourlyNow?.relativeHumidity);
+  const wind = nwsScalarNumber(obs?.windSpeed); // km/h
+  const gust = nwsScalarNumber(obs?.windGust);
+  const pressurePa = nwsScalarNumber(obs?.barometricPressure);
+  const cloudPct = nwsScalarNumber(obs?.cloudCover) ?? nwsScalarNumber(hourlyNow?.cloudCover);
+  const uvIndex = nwsScalarNumber(obs?.uvIndex);
+  const precip1hMm = nwsScalarNumber(obs?.precip1h);
+  const precip3hMm = nwsScalarNumber(obs?.precipPast3h);
+  const precip6hMm = nwsScalarNumber(obs?.precipPast6h);
+  const ceilingM = nwsScalarNumber(obs?.ceiling);
   const windDirSub =
     obs?.windDirection?.value !== undefined && obs.windDirection.value !== null
       ? `${Math.round(obs.windDirection.value)}°`
@@ -466,7 +467,7 @@ export default function Home() {
               <Bento icon={Thermometer} label="Wet bulb" value={wetBulbC != null ? fmtTemp(wetBulbC, 'C') : '—'} />
               <Bento icon={Wind} label="Gusts" value={gust != null ? fmtSpeedKmH(gust) : '—'} />
               <Bento icon={Cloud} label="Cloud cover" value={cloudPct != null ? `${Math.round(cloudPct)}%` : '—'} />
-              <Bento icon={Sun} label="UV index" value={uvIndex != null && uvIndex !== '' ? String(uvIndex) : '—'} />
+              <Bento icon={Sun} label="UV index" value={uvIndex != null ? String(uvIndex) : '—'} />
               <Bento icon={Umbrella} label="Precip (1h)" value={precip1hMm != null ? fmtMmOrIn(precip1hMm, 2) : '—'} />
               <Bento icon={Umbrella} label="Precip (3h)" value={precip3hMm != null ? fmtMmOrIn(precip3hMm, 2) : '—'} />
               <Bento icon={Umbrella} label="Precip (6h)" value={precip6hMm != null ? fmtMmOrIn(precip6hMm, 2) : '—'} />

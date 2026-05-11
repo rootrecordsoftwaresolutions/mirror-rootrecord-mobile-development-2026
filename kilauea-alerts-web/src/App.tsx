@@ -1,63 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { AuthScreen } from "./components/AuthScreen";
+import { DetailModal } from "./components/DetailModal";
+import { useAuth } from "./contexts/AuthContext";
 import { BIG_ISLAND_LOCATIONS, type BigIslandLocation } from "./locations";
-import { ensureGuestId } from "./guest";
-/** Kīlauea API shard only (override with VITE_ROOTRECORD_API_ORIGIN for staging). */
-const API_BASE =
-  (import.meta.env.VITE_ROOTRECORD_API_ORIGIN as string | undefined)?.trim() ||
-  "https://rootrecord-api-kilauea.rootrecord.workers.dev";
+import { apiFetch } from "./lib/api";
+import {
+  alertTitle,
+  asRecord,
+  buildDashboardView,
+  hourlyDisplayTemp,
+  hourlySlotWhen,
+  quakeDetailRows,
+  usgsTimeLabel,
+  type DashboardView,
+} from "./dashboardModel";
 
-function dashboardUrl(loc: BigIslandLocation, refresh: boolean): string {
-  const u = new URL(`${API_BASE}/api/dashboard`);
-  u.searchParams.set("lat", String(loc.latitude));
-  u.searchParams.set("lon", String(loc.longitude));
-  u.searchParams.set("location_id", loc.id);
-  if (refresh) u.searchParams.set("refresh", "1");
-  return u.toString();
-}
-
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
-
-function fmtTemp(v: unknown): string {
-  const n = Number(v);
-  return Number.isFinite(n) ? `${Math.round(n)}°` : "—";
-}
-
-function fmtWind(cur: Record<string, unknown> | null): string {
-  if (!cur) return "—";
-  const obs = asRecord(cur.observation) || {};
-  const s = Number(obs.Wind_Speed_Imperial ?? obs.Wind_Speed_Metric);
-  const d = String(obs.Wind_Direction || "").trim();
-  if (!Number.isFinite(s)) return "—";
-  return d ? `${d} ${Math.round(s)}` : `${Math.round(s)}`;
-}
-
-function fmtHumidity(cur: Record<string, unknown> | null): string {
-  if (!cur) return "—";
-  const obs = asRecord(cur.observation) || {};
-  const hourlyNow = asRecord(cur.hourly_now) || {};
-  const raw =
-    obs.RelativeHumidity ??
-    obs.relativeHumidity ??
-    hourlyNow.RelativeHumidity ??
-    hourlyNow.relativeHumidity;
-  const n = Number(raw);
-  return Number.isFinite(n) ? `${Math.round(n)}%` : "—";
-}
-
-function tryFormatTime(iso: unknown): string | null {
-  if (iso == null) return null;
-  if (typeof iso === "number" && Number.isFinite(iso)) {
-    const d = new Date(iso > 1e12 ? iso : iso * 1000);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
-  }
-  const s = String(iso).trim();
-  if (!s) return null;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+function dashboardPath(loc: BigIslandLocation, refresh: boolean): string {
+  const q = new URLSearchParams({
+    lat: String(loc.latitude),
+    lon: String(loc.longitude),
+    location_id: loc.id,
+  });
+  if (refresh) q.set("refresh", "1");
+  return `/api/dashboard?${q.toString()}`;
 }
 
 function periodTemp(p: Record<string, unknown>): string {
@@ -68,6 +33,7 @@ function periodTemp(p: Record<string, unknown>): string {
 }
 
 export function App() {
+  const auth = useAuth();
   const defaultLoc = useMemo(
     () => BIG_ISLAND_LOCATIONS.find((l) => l.id === "volcano") ?? BIG_ISLAND_LOCATIONS[0]!,
     [],
@@ -77,21 +43,25 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<Record<string, unknown> | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [detailModal, setDetailModal] = useState<
+    null | { kind: "hvo"; h: Record<string, unknown> } | { kind: "quake"; q: Record<string, unknown> }
+  >(null);
 
   const load = useCallback(
     async (refresh: boolean) => {
       setLoading(true);
       setError(null);
       try {
-        const guest = ensureGuestId();
-        const res = await fetch(dashboardUrl(location, refresh), {
-          headers: {
-            "X-Guest-Id": guest,
-            Accept: "application/json",
-          },
-          credentials: "include",
+        const res = await apiFetch(dashboardPath(location, refresh), {
+          headers: { Accept: "application/json" },
         });
         const text = await res.text();
+        if (res.status === 401) {
+          setBundle(null);
+          await auth.logout();
+          setError("Session expired. Sign in again.");
+          return;
+        }
         if (!res.ok) {
           setBundle(null);
           setError(`${res.status} ${res.statusText}\n${text.slice(0, 600)}`);
@@ -107,21 +77,27 @@ export function App() {
         setLoading(false);
       }
     },
-    [location],
+    [location, auth.logout],
   );
 
   useEffect(() => {
+    if (!auth.decided || !auth.authed) return;
     void load(false);
-  }, [load]);
+  }, [auth.decided, auth.authed, load]);
 
-  const current = asRecord(bundle?.current);
-  const obs = asRecord(current?.observation) || {};
-  const hourlyNow = asRecord(current?.hourly_now) || {};
-  const phrase =
-    String(hourlyNow.Phrase_32char || hourlyNow.ShortPhrase || obs.WeatherText || "—").trim() || "—";
-  const temp = fmtTemp(hourlyNow.Temperature ?? current?.temperature ?? obs.Temperature);
-  const realFeel = fmtTemp(hourlyNow.RealFeelTemperature ?? obs.RealFeelTemperature);
-  const humidity = fmtHumidity(current);
+  useEffect(() => {
+    if (auth.decided && !auth.authed) {
+      setBundle(null);
+      setError(null);
+      setFetchedAt(null);
+    }
+  }, [auth.decided, auth.authed]);
+
+  useEffect(() => {
+    setDetailModal(null);
+  }, [location]);
+
+  const view: DashboardView = useMemo(() => buildDashboardView(bundle), [bundle]);
 
   const alertsBlock = asRecord(bundle?.alerts);
   const caBlock = asRecord(bundle?.canada_alerts);
@@ -142,6 +118,26 @@ export function App() {
     .map((h) => asRecord(h))
     .filter(Boolean)
     .slice(0, 14) as Record<string, unknown>[];
+
+  const currentBlock = asRecord(bundle?.current);
+  const attribution =
+    (typeof currentBlock?.attribution === "string" && currentBlock.attribution.trim()) ||
+    (typeof currentBlock?.source === "string" && currentBlock.source.trim()) ||
+    null;
+
+  if (!auth.decided) {
+    return (
+      <div className="app-root">
+        <p className="muted" style={{ padding: "2rem 0", textAlign: "center" }}>
+          Checking session…
+        </p>
+      </div>
+    );
+  }
+
+  if (!auth.authed) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="app-root">
@@ -173,6 +169,14 @@ export function App() {
                 ))}
               </select>
             </label>
+            <div className="toolbar-user">
+              <span className="muted small user-email" title={auth.email}>
+                {auth.email}
+              </span>
+              <button type="button" className="btn btn-secondary" onClick={() => void auth.logout()}>
+                Sign out
+              </button>
+            </div>
             <div className="toolbar-actions">
               <button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void load(false)}>
                 <span className={loading ? "spin" : ""} aria-hidden>
@@ -198,6 +202,20 @@ export function App() {
         </div>
       ) : null}
 
+      {bundle && !view.currentAvailable ? (
+        <div className="warn-banner" role="status">
+          <strong>Current conditions unavailable</strong>
+          {view.currentReason ? (
+            <span className="muted small">
+              {" "}
+              ({view.currentReason}
+              {view.currentSource ? ` · ${view.currentSource}` : ""})
+            </span>
+          ) : null}
+          <span className="muted small"> Forecast and alerts below may still load.</span>
+        </div>
+      ) : null}
+
       <div className="dashboard-layout">
         <div className="dashboard-main">
           <section className="panel panel-hero">
@@ -206,30 +224,64 @@ export function App() {
                 ◎
               </span>
               <h2>Current conditions</h2>
+              {attribution ? <span className="badge badge-soft">{attribution}</span> : null}
             </div>
             {loading && !bundle ? (
               <p className="muted">Loading conditions…</p>
             ) : (
               <>
                 <div className="hero-metrics">
-                  <div className="hero-temp">{temp}</div>
+                  <div>
+                    <div className="hero-temp">{view.heroTemp}</div>
+                    {view.heroTempDetail ? <div className="hero-celsius muted small">{view.heroTempDetail}</div> : null}
+                  </div>
                   <div className="hero-meta">
-                    <div className="hero-phrase">{phrase}</div>
-                    <div className="hero-sub muted small">Feels like {realFeel}</div>
+                    <div className="hero-phrase">{view.phrase}</div>
+                    <div className="hero-sub muted small">
+                      Feels like {view.feelsLikeShort}
+                      {view.high !== "—" || view.low !== "—" ? (
+                        <span className="hi-lo">
+                          {" "}
+                          · High {view.high} / Low {view.low}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 <div className="metric-strip">
                   <div className="metric-chip">
                     <span className="metric-chip-label">Wind</span>
-                    <span className="metric-chip-value">{fmtWind(current)}</span>
+                    <span className="metric-chip-value">{view.wind}</span>
                   </div>
                   <div className="metric-chip">
                     <span className="metric-chip-label">Humidity</span>
-                    <span className="metric-chip-value">{humidity}</span>
+                    <span className="metric-chip-value">{view.humidity}</span>
                   </div>
                   <div className="metric-chip">
                     <span className="metric-chip-label">RealFeel®</span>
-                    <span className="metric-chip-value">{realFeel}</span>
+                    <span className="metric-chip-value">{view.realFeel}</span>
+                  </div>
+                </div>
+                <div className="detail-bento">
+                  <div className="bento-cell">
+                    <span className="metric-chip-label">Dew point</span>
+                    <span className="bento-value">{view.dew}</span>
+                  </div>
+                  <div className="bento-cell">
+                    <span className="metric-chip-label">Pressure</span>
+                    <span className="bento-value">{view.pressure}</span>
+                  </div>
+                  <div className="bento-cell">
+                    <span className="metric-chip-label">UV index</span>
+                    <span className="bento-value">{view.uv}</span>
+                  </div>
+                  <div className="bento-cell">
+                    <span className="metric-chip-label">Cloud cover</span>
+                    <span className="bento-value">{view.cloud}</span>
+                  </div>
+                  <div className="bento-cell bento-span">
+                    <span className="metric-chip-label">Visibility</span>
+                    <span className="bento-value">{view.visibility}</span>
                   </div>
                 </div>
               </>
@@ -246,15 +298,8 @@ export function App() {
               </div>
               <div className="hourly-scroll" role="list">
                 {hourlySlots.map((h, i) => {
-                  const t =
-                    h.temperature != null
-                      ? `${h.temperature}${h.temperatureUnit != null ? `°${String(h.temperatureUnit)}` : "°"}`
-                      : "—";
-                  const when =
-                    tryFormatTime(h.startTime) ||
-                    tryFormatTime(h.DateTime) ||
-                    tryFormatTime(h.EpochDateTime) ||
-                    "—";
+                  const t = hourlyDisplayTemp(h);
+                  const when = hourlySlotWhen(h);
                   const blurb = String(h.shortForecast || h.ShortPhrase || "").trim();
                   return (
                     <div key={i} className="hourly-cell" role="listitem">
@@ -294,6 +339,82 @@ export function App() {
         </div>
 
         <aside className="dashboard-aside">
+          <section
+            className={`panel panel-hvo hvo-tone-${(() => {
+              const hx = asRecord(bundle?.kilauea_hvo);
+              if (hx?.available !== true) return "unknown";
+              return String(hx.aviation_color_code ?? "unknown")
+                .trim()
+                .toLowerCase();
+            })()}${
+              asRecord(bundle?.kilauea_hvo)?.available === true ? " panel-hvo--interactive" : ""
+            }`}
+            aria-labelledby="hvo-heading"
+            {...(() => {
+              const h = asRecord(bundle?.kilauea_hvo);
+              if (!h || h.available !== true) return {};
+              return {
+                role: "button" as const,
+                tabIndex: 0,
+                "aria-label": "Open full volcano notice in a dialog",
+                onClick: () => setDetailModal({ kind: "hvo", h }),
+                onKeyDown: (e: KeyboardEvent) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDetailModal({ kind: "hvo", h });
+                  }
+                },
+              };
+            })()}
+          >
+            <div className="panel-head">
+              <span className="panel-icon" aria-hidden>
+                △
+              </span>
+              <h2 id="hvo-heading">USGS HVO — Kīlauea</h2>
+            </div>
+            {(() => {
+              const h = asRecord(bundle?.kilauea_hvo);
+              if (!h) {
+                return <p className="muted small">Load the dashboard to see volcano status.</p>;
+              }
+              if (h.available !== true) {
+                return (
+                  <p className="muted small">
+                    {String(h.reason || "").includes("outside")
+                      ? "Volcano status is only included for Hawaiʻi Island views near Kīlauea."
+                      : "Could not reach USGS HANS for the latest HVO notice."}
+                  </p>
+                );
+              }
+              const level = String(h.alert_level ?? "—").trim() || "—";
+              const av = String(h.aviation_color_code ?? "—").trim() || "—";
+              const title = typeof h.notice_title === "string" ? h.notice_title.trim() : "";
+              const sent = typeof h.sent_utc === "string" ? h.sent_utc.trim() : "";
+              const synopsis = typeof h.synopsis_plain === "string" ? h.synopsis_plain.trim() : "";
+              return (
+                <div className="hvo-body">
+                  <div className="hvo-levels">
+                    <div>
+                      <div className="metric-chip-label">Alert level</div>
+                      <div className="hvo-level">{level}</div>
+                    </div>
+                    <div>
+                      <div className="metric-chip-label">Aviation color</div>
+                      <div className="hvo-level">{av}</div>
+                    </div>
+                  </div>
+                  {title ? <div className="hvo-title">{title}</div> : null}
+                  {sent ? <div className="muted small">Notice date (UTC): {sent}</div> : null}
+                  {synopsis ? <p className="hvo-synopsis muted small hvo-synopsis-preview">{synopsis}</p> : null}
+                  <p className="muted small" style={{ marginTop: "0.5rem" }}>
+                    Click the card for the full notice text.
+                  </p>
+                </div>
+              );
+            })()}
+          </section>
+
           <section className="panel panel-alerts">
             <div className="panel-head">
               <span className="panel-icon" aria-hidden>
@@ -307,7 +428,7 @@ export function App() {
             ) : (
               <ul className="alert-list alert-list-scroll">
                 {alertRows.map((a, i) => {
-                  const head = String(a.headline || a.event || a.title || "Alert").trim();
+                  const head = alertTitle(a);
                   const sev = String(a.severity || "").toLowerCase();
                   return (
                     <li key={i} className={`alert-item sev-${sev || "unknown"}`}>
@@ -342,13 +463,27 @@ export function App() {
                   if (!row) return null;
                   const mag = row.magnitude ?? row.mag;
                   const place = String(row.place || row.title || "—");
-                  const when = row.time != null ? new Date(Number(row.time)).toLocaleString() : "—";
+                  const when = usgsTimeLabel(row.time);
                   return (
-                    <li key={i} className="quake-row">
+                    <li
+                      key={i}
+                      className="quake-row quake-row--interactive"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Earthquake details: magnitude ${mag != null ? String(mag) : "unknown"} near ${place}`}
+                      onClick={() => setDetailModal({ kind: "quake", q: row })}
+                      onKeyDown={(e: KeyboardEvent) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDetailModal({ kind: "quake", q: row });
+                        }
+                      }}
+                    >
                       <span className="quake-mag">{mag != null ? String(mag) : "—"}</span>
-                      <div>
+                      <div className="quake-body">
                         <div className="quake-place">{place}</div>
                         <div className="muted small">{when}</div>
+                        <div className="quake-row-hint">Tap for full details</div>
                       </div>
                     </li>
                   );
@@ -378,6 +513,77 @@ export function App() {
           </section>
         </aside>
       </div>
+
+      {detailModal?.kind === "hvo" ? (
+        <DetailModal
+          open
+          title="USGS HVO — Kīlauea"
+          onClose={() => setDetailModal(null)}
+          footer={(() => {
+            const u = typeof detailModal.h.notice_url === "string" ? detailModal.h.notice_url.trim() : "";
+            if (!u) return undefined;
+            return (
+              <a className="link-pill modal-external" href={u} target="_blank" rel="noreferrer">
+                Open official USGS page for this notice
+              </a>
+            );
+          })()}
+        >
+          {(() => {
+            const h = detailModal.h;
+            const level = String(h.alert_level ?? "—").trim() || "—";
+            const av = String(h.aviation_color_code ?? "—").trim() || "—";
+            const title = typeof h.notice_title === "string" ? h.notice_title.trim() : "";
+            const sent = typeof h.sent_utc === "string" ? h.sent_utc.trim() : "";
+            const synopsis = typeof h.synopsis_plain === "string" ? h.synopsis_plain.trim() : "";
+            return (
+              <>
+                <div className="modal-hvo-levels">
+                  <div>
+                    <div className="metric-chip-label">Alert level</div>
+                    <div className="hvo-level">{level}</div>
+                  </div>
+                  <div>
+                    <div className="metric-chip-label">Aviation color</div>
+                    <div className="hvo-level">{av}</div>
+                  </div>
+                </div>
+                {title ? <div className="hvo-title">{title}</div> : null}
+                {sent ? <div className="muted small">Notice date (UTC): {sent}</div> : null}
+                {synopsis ? (
+                  <p className="modal-prose">{synopsis}</p>
+                ) : (
+                  <p className="muted small">No synopsis text was included in this update.</p>
+                )}
+              </>
+            );
+          })()}
+        </DetailModal>
+      ) : null}
+      {detailModal?.kind === "quake" ? (
+        <DetailModal
+          open
+          title="Earthquake details"
+          onClose={() => setDetailModal(null)}
+          footer={(() => {
+            const u = typeof detailModal.q.url === "string" ? detailModal.q.url.trim() : "";
+            if (!u) return undefined;
+            return (
+              <a className="link-pill modal-external" href={u} target="_blank" rel="noreferrer">
+                Open this event on the USGS site
+              </a>
+            );
+          })()}
+        >
+          <p className="modal-lead">{String(detailModal.q.place || detailModal.q.title || "—")}</p>
+          <dl className="modal-dl">
+            {quakeDetailRows(detailModal.q).flatMap((r) => [
+              <dt key={`${r.label}-k`}>{r.label}</dt>,
+              <dd key={`${r.label}-v`}>{r.value}</dd>,
+            ])}
+          </dl>
+        </DetailModal>
+      ) : null}
     </div>
   );
 }

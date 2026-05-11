@@ -76,7 +76,8 @@ if (-not $hasToken -and -not $hasGlobal) {
 
 $frontendRoot = (Get-Location).Path
 $buildDir = Join-Path $frontendRoot "build"
-if (-not $SkipBuild -and (-not (Test-Path -LiteralPath $buildDir) -or -not (Test-Path (Join-Path $buildDir "index.html")))) {
+# Always run a production build when not -SkipBuild — otherwise stale build/ can be uploaded after code edits.
+if (-not $SkipBuild) {
   Write-Host "Building SPA (react-scripts)..."
   pnpm run build
 }

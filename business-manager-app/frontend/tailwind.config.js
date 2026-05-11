@@ -4,17 +4,23 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ["Manrope", "system-ui", "sans-serif"],
-        body: ["Work Sans", "system-ui", "sans-serif"],
+        heading: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
+        body: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
       },
       colors: {
-        bg: { base: "#0B1010", surface: "#141C1C", elevated: "#1E2929" },
-        ink: { primary: "#F8FAFA", secondary: "#A1B0B0", tertiary: "#687777" },
+        /* Aligned with Weather Manager web (`weather-manager-mobile/frontend/tailwind.config.js`). */
+        bg: { base: "#060d14", surface: "#0c1824", elevated: "#122a3d" },
+        ink: {
+          primary: "#e8f4ef",
+          secondary: "rgba(232,244,239,0.55)",
+          tertiary: "rgba(232,244,239,0.38)",
+        },
         brand: {
-          DEFAULT: "#2B8A8F",
-          light: "#45A7AC",
-          dark: "#19666B",
-          subtle: "rgba(43,138,143,0.15)",
+          DEFAULT: "#5ee9b0",
+          light: "#7ef0c0",
+          dark: "#4ad198",
+          subtle: "rgba(94,233,176,0.18)",
         },
         income: "#10B981",
         expense: "#F43F5E",

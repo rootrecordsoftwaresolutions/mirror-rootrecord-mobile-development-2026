@@ -10,14 +10,14 @@ import TabBar from './components/TabBar';
 import GuestBanner from './components/GuestBanner';
 import DeveloperMessages from './pages/DeveloperMessages';
 import AlertDetail from './pages/AlertDetail';
-import { api, isBackendConfigured, session, RR_APP_ID } from './lib/api';
+import { api, isBackendConfigured, session, RR_APP_ID, tryHydrateSessionFromCookie } from './lib/api';
 import { safeLocalStorage, safeSessionStorage } from './lib/storage';
 
 /** Same earn heartbeat pattern as Business Manager — shared `rr_earn_*` balance on the API Worker. */
-function EarnHeartbeat() {
+function EarnHeartbeat({ decided }) {
   const location = useLocation();
   useEffect(() => {
-    if (!session.isAuthed()) return undefined;
+    if (!decided || !session.isAuthed()) return undefined;
     if (!isBackendConfigured()) return undefined;
     const page = location.pathname || '/';
     const tick = () => {
@@ -26,7 +26,7 @@ function EarnHeartbeat() {
     tick();
     const id = setInterval(tick, 25_000);
     return () => clearInterval(id);
-  }, [location.pathname]);
+  }, [location.pathname, decided]);
   return null;
 }
 
@@ -39,12 +39,21 @@ function useGate() {
   const [guest, setGuest] = useState(false);
 
   useEffect(() => {
-    try {
-      setAuthed(session.isAuthed());
-      setGuest(false);
-    } finally {
-      setDecided(true);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        await tryHydrateSessionFromCookie();
+      } finally {
+        if (!cancelled) {
+          setAuthed(session.isAuthed());
+          setGuest(false);
+          setDecided(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return { decided, authed, guest, setAuthed, setGuest };
@@ -172,7 +181,7 @@ export default function App() {
       }}
     >
       <GuestBanner />
-      {authed ? <EarnHeartbeat /> : null}
+      {authed ? <EarnHeartbeat decided={decided} /> : null}
       <Routes>
         <Route
           path="/auth"
